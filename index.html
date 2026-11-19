@@ -709,7 +709,8 @@ const LocalAPI = (() => {
             let d; try { d = JSON.parse(txt); } catch(e) { d = {}; }
 
             // Seule une vraie file pleine (429 / video_queue_full) justifie d'attendre
-            const queueFull = r.status === 429 || d.code === 'video_queue_full';
+            // Agnes renvoie la file pleine en 503 (parfois sans code) : tout 503 = serveur occupé
+            const queueFull = r.status === 429 || r.status === 503 || d.code === 'video_queue_full' || d.code === 'fail_to_fetch_task';
             if (queueFull) {
               // Attente exponentielle : 15s, 30s, 60s, puis 120s max
               const wait = Math.min(15000 * 2 ** attempt, 120000);
@@ -751,12 +752,14 @@ const LocalAPI = (() => {
           if (onProgress) onProgress(status || '?', Math.round((Date.now()-start)/1000));
 
           if (status === 'completed') {
-            const url = res.url || res.video_url || (res.data && res.data.url) || (res.data && res.data.video_url);
+            const url = res.url || res.video_url || (res.data && res.data.url) || (res.data && res.data.video_url) || (res.metadata && res.metadata.url);
             if (!url) { const err = new Error('Terminé mais URL introuvable : ' + JSON.stringify(res).slice(0,200)); err.fatal = true; throw err; }
             return url;
           }
           if (status === 'failed') {
-            const err = new Error(res.error || (res.data && res.data.error) || 'Échec de la génération');
+            // error est un objet {code, message} (ex. rendu bloqué après 15 min côté Agnes)
+            const e0 = res.error || (res.data && res.data.error);
+            const err = new Error((e0 && (e0.message || e0.code)) || (typeof e0 === 'string' ? e0 : '') || 'Échec de la génération');
             err.fatal = true; throw err;
           }
         }
