@@ -322,15 +322,18 @@ async function acquireKey() {
 }
 
 async function callWithPool(fn, label='appel') {
+  if (!KEY_POOL.length) throw new Error('Aucune clé API configurée');
   let lastErr;
   for (let attempt=0; attempt<5; attempt++) {
     const k = await acquireKey();
-    try { 
-      const r = await fn(k.key); 
-      k.status='idle'; 
-      return r; 
+    try {
+      const r = await fn(k.key);
+      k.status='idle';
+      return r;
     } catch (e) {
       lastErr = e;
+      // Erreur définitive (échec de génération, requête invalide…) : on ne relance pas
+      if (e.fatal) { k.status = 'idle'; throw e; }
       if (e.code === 429 || String(e.message).includes('429') || String(e.message).includes('queue_full')) {
         k.status = 'cooldown';
         k.cooldownUntil = Date.now() + 30000; // 30 secondes de pause
@@ -351,6 +354,18 @@ function speakBrowser(text) { if (!('speechSynthesis' in window)) return; speech
 async function testVoice() { if (!IS_PUTER_CONNECTED && $('voiceSelect').value !== 'browser') return toast("Connectez-vous à Puter", 'err'); const voiceVal = $('voiceSelect').value; toast("Test...", "info"); if (voiceVal === 'browser') { speakBrowser("Bonjour."); } else { const audio = await generateAudioPuter("Bonjour.", voiceVal); if (audio) audio.play(); else toast("Échec", "err"); } }
 
 // --- GITHUB ---
+// Lit storyboard.json via l'API (contenu à jour + sha), sans le cache de raw.githubusercontent
+async function ghGetStoryboard(user, repo, token) {
+  const r = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/storyboard.json?t=${Date.now()}`, { headers: { 'Authorization': `Bearer ${token}` }, cache: 'no-store' });
+  if (r.status === 404) return { data: null, sha: null };
+  if (!r.ok) throw new Error(`Lecture du storyboard GitHub impossible (${r.status})`);
+  const j = await r.json();
+  const bytes = Uint8Array.from(atob(j.content.replace(/\n/g, '')), c => c.charCodeAt(0));
+  let data = null;
+  try { data = JSON.parse(new TextDecoder().decode(bytes)); } catch(e) {}
+  return { data: Array.isArray(data) ? data : null, sha: j.sha };
+}
+
 $('pushToGithubBtn').onclick = async () => {
   const user = $('ghUser').value.trim(), repo = $('ghRepo').value.trim(), token = $('ghToken').value.trim();
   if (!user || !repo || !token) return toast('Remplissez les infos', 'err');
@@ -375,22 +390,48 @@ $('pushToGithubBtn').onclick = async () => {
       }
     }
     
-    const formattedShots = SHOTS.map(s => ({ 
-        ident: s.ident, 
-        title: s.title, 
-        anim_prompt: s.anim_prompt || s.script || s.description || "Cinematic motion", 
-        images: s.images.map(img => ({ url: img.url })), 
-        video_url: s.video_url || null 
-    }));
-    
-    const jsonContent = JSON.stringify(formattedShots, null, 2);
-    let sha = null;
-    const getResJson = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/storyboard.json`, { headers: { 'Authorization': `Bearer ${token}` } });
-    if (getResJson.ok) { sha = (await getResJson.json()).sha; }
-    const base64Content = btoa(unescape(encodeURIComponent(jsonContent)));
-    const putResJson = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/storyboard.json`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ message: '🤖 Update', content: base64Content, sha: sha }) });
-    if (!putResJson.ok) throw new Error('Erreur JSON');
-    $('ghStatus').className = 'status ok'; $('ghStatus').textContent = '✅ Envoyé !';
+    // Fusion : on ne remplace jamais une vidéo déjà générée sur GitHub (ex. la nuit) par une valeur vide,
+    // sauf si l'utilisateur a demandé une régénération complète (bouton ♻️).
+    const forceReset = localStorage.getItem('sf_force_video_reset') === '1';
+    let recovered = 0, pushed = false;
+    for (let attempt = 0; attempt < 3 && !pushed; attempt++) {
+      $('ghStatus').textContent = '⏳ Synchronisation du storyboard...';
+      const remote = await ghGetStoryboard(user, repo, token);
+      if (!forceReset && remote.data) {
+        const remoteByIdent = new Map(remote.data.filter(r => r.ident).map(r => [r.ident, r]));
+        for (const s of SHOTS) {
+          const r = s.ident ? remoteByIdent.get(s.ident) : null;
+          if (r && r.video_url && !s.video_url) {
+            s.video_url = r.video_url;   // on récupère aussi la vidéo en local
+            await LocalAPI.saveShot(s);
+            recovered++;
+          }
+        }
+      }
+
+      const formattedShots = SHOTS.map(s => ({
+          ident: s.ident,
+          title: s.title,
+          anim_prompt: s.anim_prompt || s.script || s.description || "Cinematic motion",
+          images: s.images.map(img => ({ url: img.url })),
+          video_url: s.video_url || null
+      }));
+
+      const jsonContent = JSON.stringify(formattedShots, null, 2);
+      const base64Content = btoa(unescape(encodeURIComponent(jsonContent)));
+      const putResJson = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/storyboard.json`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ message: '🤖 Update', content: base64Content, sha: remote.sha || undefined }) });
+      if (putResJson.ok) { pushed = true; break; }
+      // 409/422 = le fichier a changé entre-temps (script nocturne) : on relit et on refusionne
+      if (putResJson.status !== 409 && putResJson.status !== 422) throw new Error(`Erreur JSON (${putResJson.status})`);
+      await new Promise(r => setTimeout(r, 1500));
+    }
+    if (!pushed) throw new Error('Le storyboard a changé sur GitHub pendant l\'envoi. Réessayez.');
+    if (forceReset) localStorage.removeItem('sf_force_video_reset');
+    if (recovered) { renderShots(); renderIndividualVideos(); renderVidGrid(); }
+    $('ghStatus').className = 'status ok';
+    $('ghStatus').textContent = recovered
+      ? `✅ Envoyé ! ${recovered} vidéo(s) générée(s) sur GitHub conservée(s) et récupérée(s).`
+      : (forceReset ? '✅ Envoyé ! Toutes les vidéos seront régénérées.' : '✅ Envoyé !');
   } catch (e) { $('ghStatus').className = 'status err'; $('ghStatus').textContent = '❌ ' + e.message; }
 };
 
@@ -402,11 +443,18 @@ $('pullFromGithubBtn').onclick = async () => {
   $('ghStatus').className = 'status';
 
   try {
-    const url = `https://raw.githubusercontent.com/${user}/${repo}/main/storyboard.json?t=${Date.now()}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('Fichier storyboard.json introuvable sur ce dépôt.');
-    
-    const remoteData = await res.json();
+    let remoteData;
+    const token = $('ghToken').value.trim();
+    if (token) {
+      // Via l'API : toujours à jour (raw.githubusercontent peut servir une version en cache quelques minutes)
+      remoteData = (await ghGetStoryboard(user, repo, token)).data;
+      if (!remoteData) throw new Error('Fichier storyboard.json introuvable ou invalide sur ce dépôt.');
+    } else {
+      const url = `https://raw.githubusercontent.com/${user}/${repo}/main/storyboard.json?t=${Date.now()}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Fichier storyboard.json introuvable sur ce dépôt.');
+      remoteData = await res.json();
+    }
     if (!Array.isArray(remoteData)) throw new Error("Le fichier sur GitHub n'est pas un format valide.");
 
     let videoCount = 0;
@@ -441,6 +489,8 @@ $('resetVideosBtn').onclick = async () => {
     s.video_url = null;
     await LocalAPI.saveShot(s);
   }
+  // Sans ce marqueur, le prochain envoi récupérerait les vidéos existantes sur GitHub
+  localStorage.setItem('sf_force_video_reset', '1');
   renderShots();
   renderIndividualVideos();
   toast("Tous les liens vidéos ont été effacés. Pensez à envoyer sur GitHub !", "ok");
@@ -628,7 +678,9 @@ const LocalAPI = (() => {
           if (!r.ok) {
              let errMsg = txt.slice(0,100);
              try { const j = JSON.parse(txt); if(j.error && j.error.message) errMsg = j.error.message; } catch(e){}
-             throw new Error(errMsg);
+             const err = new Error(errMsg);
+             err.code = r.status; // permet à callWithPool de détecter les 429
+             throw err;
           }
           return JSON.parse(txt);
         } finally { clearTimeout(tid); }
@@ -648,51 +700,64 @@ const LocalAPI = (() => {
         if (imgStart) p.first_frame = imgStart;
         
         let videoId = null;
-        for (let attempt = 0; attempt < 15; attempt++) {
+        const MAX_TRIES = 8;
+        for (let attempt = 0; attempt < MAX_TRIES; attempt++) {
           const ctl = new AbortController(); const tid = setTimeout(()=>ctl.abort(), 60000);
           try {
             const r = await fetch(AGNES_BASE+'/videos', { method:'POST', signal:ctl.signal, headers:{'Content-Type':'application/json','Authorization':'Bearer '+key}, body:JSON.stringify(p) });
-            const txt = await r.text(); 
+            const txt = await r.text();
             let d; try { d = JSON.parse(txt); } catch(e) { d = {}; }
-            
-            if (!r.ok || d.code === 'video_queue_full') { 
-              if (onProgress) onProgress('file_attente', (attempt+1) * 10); 
-              // Attente exponentielle : 15s, 20s, 25s... jusqu'à 1min max
-              const wait = Math.min(15000 + (attempt * 5000), 60000);
-              await new Promise(res => setTimeout(res, wait)); 
-              continue; 
+
+            // Seule une vraie file pleine (429 / video_queue_full) justifie d'attendre
+            const queueFull = r.status === 429 || d.code === 'video_queue_full';
+            if (queueFull) {
+              // Attente exponentielle : 15s, 30s, 60s, puis 120s max
+              const wait = Math.min(15000 * 2 ** attempt, 120000);
+              if (onProgress) onProgress('file_attente', Math.round(wait / 1000));
+              await new Promise(res => setTimeout(res, wait));
+              continue;
             }
-            videoId = d.video_id || d.task_id || d.id; 
+            // Autre erreur (clé invalide, image refusée…) : inutile de réessayer
+            if (!r.ok) {
+              const err = new Error(`Erreur API ${r.status} : ${(d.error && d.error.message) || txt.slice(0,150)}`);
+              err.code = r.status; err.fatal = true; throw err;
+            }
+            videoId = d.video_id || d.task_id || d.id;
             if (videoId) break;
-          } catch(e) { 
-            if (attempt === 14) throw e; 
-            await new Promise(res => setTimeout(res, 5000)); 
+            const err = new Error('Réponse sans identifiant vidéo : ' + txt.slice(0,150));
+            err.fatal = true; throw err;
+          } catch(e) {
+            if (e.fatal || attempt === MAX_TRIES - 1) throw e;
+            await new Promise(res => setTimeout(res, 5000)); // erreur réseau passagère
           } finally { clearTimeout(tid); }
         }
-        
-        if (!videoId) throw new Error('File pleine (15 essais).');
+
+        if (!videoId) { const err = new Error(`File pleine (${MAX_TRIES} essais).`); err.code = 429; throw err; }
 
         const start = Date.now();
         while(true) {
           await new Promise(r=>setTimeout(r, 5000)); // 5s entre chaque check
-          if (Date.now() - start > 1200000) throw new Error('Timeout (20min)');
-          
+          if (Date.now() - start > 1200000) { const err = new Error('Timeout (20min)'); err.fatal = true; throw err; }
+
+          // Seules les erreurs réseau du suivi sont ignorées (pas les échecs de génération)
+          let res;
           try {
             const r = await fetch(`https://apihub.agnes-ai.com/agnesapi?video_id=${videoId}&model_name=${AGNES_VID_MODEL}`, {headers:{'Authorization':'Bearer '+key}});
-            const res = await r.json();
-            
-            // Gestion robuste des statuts
-            const status = res.status || (res.data && res.data.status) || res.task_status;
-            if(onProgress && status) onProgress(status, Math.round((Date.now()-start)/1000));
-            
-            if(status === 'completed') {
-              return res.url || res.video_url || (res.data && res.data.url) || (res.data && res.data.video_url);
-            }
-            if(status === 'failed') {
-              throw new Error(res.error || (res.data && res.data.error) || 'Échec');
-            }
-          } catch(e) {
-            // On ignore les erreurs de réseau mineures pendant le polling
+            res = await r.json();
+          } catch(e) { continue; }
+
+          // Gestion robuste des statuts ('?' = champ statut introuvable dans la réponse)
+          const status = res.status || (res.data && res.data.status) || res.task_status;
+          if (onProgress) onProgress(status || '?', Math.round((Date.now()-start)/1000));
+
+          if (status === 'completed') {
+            const url = res.url || res.video_url || (res.data && res.data.url) || (res.data && res.data.video_url);
+            if (!url) { const err = new Error('Terminé mais URL introuvable : ' + JSON.stringify(res).slice(0,200)); err.fatal = true; throw err; }
+            return url;
+          }
+          if (status === 'failed') {
+            const err = new Error(res.error || (res.data && res.data.error) || 'Échec de la génération');
+            err.fatal = true; throw err;
           }
         }
       }, 'génération vidéo');
