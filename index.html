@@ -1,0 +1,1339 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Studio Films — ArtForge Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://js.puter.com/v2/"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#cdd8e2;--bg2:#eef2f6;--bg3:#dde6ee;--line:#b4c3d2;--ink:#0b1626;--ink2:#3f526a;--ink3:#7487a0;--navy:#0f2038;--navy2:#18365a;--pill:#7fa6cc;--gold:#2c6db5;--green:#14946a;--green-dim:rgba(20,148,106,.11);--red:#d9473d;--red-dim:rgba(217,71,61,.1);--orange:#ff6a2b;--sans:'Inter Tight',system-ui,sans-serif;--mono:'JetBrains Mono',monospace}
+body{font:14px/1.55 var(--sans);color:var(--ink);background:linear-gradient(180deg,#d6dfe8 0%,#c4d0dc 100%);background-attachment:fixed}
+.hidden{display:none!important}
+#topbar{position:fixed;top:0;left:0;right:0;height:58px;padding:0 1.2rem;display:flex;align-items:center;gap:.9rem;z-index:50;background:rgba(224,232,240,.78);backdrop-filter:blur(18px);border-bottom:1px solid var(--line);font:500 11px var(--mono)}
+.brand{font:800 1rem var(--sans);color:var(--navy);text-transform:uppercase}
+.brand i{color:var(--pill);font-style:normal}
+#modeTag{padding:.3rem .8rem;border-radius:99px;background:rgba(15,32,56,.07);border:1px solid var(--line);color:var(--ink3);font:700 10px var(--mono)}
+#modeTag.live{background:var(--navy);color:#fff;border-color:var(--navy)}
+#main{max-width:1280px;margin:0 auto;padding:5rem 1.2rem 160px}
+h1{font:800 2.2rem var(--sans);letter-spacing:-.04em;color:var(--navy);text-transform:uppercase;margin-bottom:.5rem}
+.tabs{display:flex;gap:0;margin-bottom:1.2rem;flex-wrap:wrap;background:linear-gradient(180deg,var(--navy2),var(--navy));border-radius:14px;padding:4px}
+.tab{flex:1;min-width:max-content;padding:.75rem 1rem;border-radius:10px;border:none;background:transparent;color:#a9c0da;cursor:pointer;font:600 11px var(--mono);text-transform:uppercase;transition:.2s}
+.tab.active{background:var(--pill);color:var(--navy)}
+.card{background:rgba(240,244,248,.88);backdrop-filter:blur(10px);border:1px solid rgba(142,164,186,.55);border-radius:20px;padding:1.3rem;margin-bottom:1rem;box-shadow:0 24px 60px -28px rgba(15,32,56,.45)}
+.card-head{display:flex;align-items:center;gap:.6rem;margin-bottom:.7rem;padding-bottom:.6rem;border-bottom:1px dashed var(--line);font:700 10px var(--mono);text-transform:uppercase;color:var(--ink3)}
+.card-head b{color:var(--navy)}
+label.lab{display:block;font:700 10px var(--mono);color:var(--ink2);text-transform:uppercase;margin:.9rem 0 .4rem}
+input,textarea,select{width:100%;background:#f7f9fc;border:1px solid var(--line);border-radius:10px;padding:.7rem .9rem;font:500 13px var(--sans);color:var(--ink);outline:none;min-height:44px}
+textarea{min-height:80px;resize:vertical}
+input:focus,textarea:focus,select:focus{border-color:var(--gold);background:#fff;box-shadow:0 0 0 4px rgba(44,109,181,.14)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}
+@media(max-width:640px){.row{grid-template-columns:1fr}}
+.btn{min-height:42px;padding:.55rem 1.2rem;border-radius:99px;font:700 .68rem var(--mono);text-transform:uppercase;cursor:pointer;border:1px solid;transition:.2s;display:inline-flex;align-items:center;justify-content:center;gap:.4rem}
+.btn-gold{background:var(--pill);border-color:var(--pill);color:var(--navy)}
+.btn-gold:hover{background:var(--navy);color:#fff}
+.btn-cyan{background:transparent;border-color:var(--navy);color:var(--navy)}
+.btn-cyan:hover{background:var(--navy);color:#fff}
+.btn-green{background:var(--green-dim);border-color:var(--green);color:var(--green)}
+.btn-green:hover{background:var(--green);color:#fff}
+.btn-red{background:var(--red-dim);border-color:var(--red);color:var(--red)}
+.btn-red:hover{background:var(--red);color:#fff}
+.btn-orange{background:var(--orange);border-color:var(--orange);color:#fff}
+.btn-orange:hover{background:#d65420;border-color:#d65420}
+.btn-mega{width:100%;min-height:55px;background:linear-gradient(180deg,var(--navy2),var(--navy));color:#fff;border-radius:99px;font:800 .9rem var(--sans);text-transform:uppercase;cursor:pointer;border:none;margin-top:1rem}
+.btn-mega:hover{opacity:.9}
+.segmented{display:flex;background:#e8eef4;border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px}
+.segmented button{flex:1;padding:.5rem;border:none;background:transparent;border-radius:8px;font:700 .66rem var(--mono);cursor:pointer;color:var(--ink2)}
+.segmented button.active{background:#fff;color:var(--navy);box-shadow:0 2px 6px -2px rgba(15,32,56,.3)}
+.shot-card{background:#f7f9fc;border:1px solid var(--line);border-radius:14px;margin-bottom:.9rem;overflow:hidden}
+.shot-head{display:flex;align-items:center;gap:.7rem;padding:.6rem .9rem;background:#e8eef4;border-bottom:1px solid var(--line)}
+.shot-id{font:800 .78rem var(--mono);color:var(--navy);padding:.2rem .55rem;border-radius:6px;background:#fff;border:1px solid var(--line)}
+.shot-title{flex:1;font:700 .82rem var(--sans);color:var(--navy)}
+.shot-body{display:grid;grid-template-columns:220px 1fr;gap:.9rem;padding:.9rem}
+.shot-media{display:flex;flex-direction:column;gap:.3rem}
+.shot-media .main-img {width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:8px; border:1px solid var(--line);}
+.shot-media video { width: 100%; border-radius: 8px; border: 2px solid var(--green); margin-top: .5rem; background: #000; }
+.shot-media .thumbnails {display:flex; gap:.3rem; flex-wrap:wrap;}
+.shot-media .thumb {position:relative; width:50px; height:50px; border-radius:6px; border:1px solid var(--line); overflow:hidden;}
+.shot-media .thumb img {width:100%; height:100%; object-fit:cover;}
+.shot-media .thumb .rm {position:absolute; top:2px; right:2px; background:var(--red); color:#fff; border:none; border-radius:50%; width:14px; height:14px; font-size:10px; cursor:pointer; display:grid; place-items:center;}
+.shot-fields label{font:700 .62rem var(--mono);color:var(--ink3);text-transform:uppercase;margin-top:.35rem;display:block}
+.shot-fields textarea, .shot-fields input{font:500 10.5px var(--mono);min-height:32px;padding:.4rem}
+.shot-actions{display:flex;gap:.4rem;flex-wrap:wrap;padding:.5rem .9rem;border-top:1px solid var(--line);background:#f7f9fc}
+.btn-mini{background:#fff;border:1px solid var(--line);color:var(--ink2);font:700 .6rem var(--mono);padding:.4rem .8rem;border-radius:99px;cursor:pointer}
+.btn-mini:hover{background:var(--navy);color:#fff}
+.btn-mini:disabled{opacity:.3;cursor:not-allowed}
+.status{font:500 11px var(--mono);padding:.6rem;border-radius:8px;background:var(--bg3);color:var(--ink2);border-left:3px solid var(--line);margin-top:.5rem}
+.status.ok{background:var(--green-dim);color:var(--green);border-left-color:var(--green)}
+.status.err{background:var(--red-dim);color:var(--red);border-left-color:var(--red)}
+.step{display:flex;align-items:center;gap:.6rem;padding:.6rem;background:#fff;border:1px solid var(--line);border-radius:8px;margin-bottom:.4rem;font:500 .72rem var(--mono)}
+.spinner{width:11px;height:11px;border:2px solid #ccc;border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#toast{position:fixed;top:70px;left:50%;transform:translate(-50%,-150px);background:var(--navy);color:#fff;padding:.75rem 1.4rem;border-radius:99px;font:600 .72rem var(--mono);z-index:200;opacity:0;transition:.35s;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+#toast.on{transform:translate(-50%,0);opacity:1}
+#toast.err{background:var(--red)}
+#toast.ok{background:var(--green)}
+#apiPanel{position:fixed;bottom:0;left:0;right:0;z-index:40;background:var(--navy);color:#fff;border-top:1px solid #2d5183}
+#apiHead{padding:.8rem 1.2rem;cursor:pointer;display:flex;justify-content:space-between;font:700 .7rem var(--mono);letter-spacing:.1em}
+#apiBody{padding:1rem;display:none;border-top:1px solid rgba(255,255,255,.1)}
+#apiBody.open{display:block}
+#apiPanel input,#apiPanel textarea{background:#08142a;color:#fff;border-color:#2b4a70}
+#imgGrid { display: grid; grid-template-columns: repeat(auto-fill,minmax(300px,1fr)); gap: 1rem; margin-top: 1rem; }
+.drop-zone { border: 2px dashed transparent; transition: all 0.2s; }
+.drop-zone.dragover { border-color: var(--gold); background: #fff; transform: scale(1.02); }
+.ref-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem; }
+.ref-card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 10px; text-align: center; position:relative; }
+.ref-card img { width: 100%; height: 150px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; }
+.ref-card .rm { position:absolute; top:15px; right:15px; background:var(--red); color:#fff; border:none; border-radius:50%; width:20px; height:20px; cursor:pointer; display:grid; place-items:center;}
+
+/* Grille pour la génération individuelle */
+#vidIndividualGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem; }
+</style>
+</head>
+<body>
+<div id="topbar">
+  <div class="brand">Studio<i>Films</i></div>
+  <span id="modeTag">NON CONFIGURÉ</span>
+  <button class="btn btn-cyan hidden" id="logoutBtn" style="margin-left:auto">↻ Déconnexion</button>
+</div>
+
+<div id="main" class="hidden">
+  <h1>Studio Films</h1>
+  <div class="tabs">
+    <button class="tab active" data-tab="project">🎬 Projet</button>
+    <button class="tab" data-tab="import">📥 Import .md</button>
+    <button class="tab" data-tab="analyze">🎭 Références</button>
+    <button class="tab" data-tab="storyboard">📋 Storyboard</button>
+    <button class="tab" data-tab="genimg">🖼️ Images</button>
+    <button class="tab" data-tab="genvid">🎞️ Vidéos</button>
+    <button class="tab" data-tab="genvoice">🎙️ Voix</button>
+    <button class="tab" data-tab="export">📦 Export</button>
+  </div>
+
+  <section id="tab-project">
+    <div class="card">
+      <div class="card-head"><b>Projet & Sauvegarde</b></div>
+      <label class="lab">Nom</label>
+      <input type="text" id="projectName" placeholder="Ex: ET-SI Épisode 4">
+      <label class="lab">Pitch / Histoire</label>
+      <textarea id="projectPitch" placeholder="Collez votre histoire ici..."></textarea>
+      <div style="display:flex;gap:.5rem;margin-top:1rem;flex-wrap:wrap">
+        <button class="btn btn-gold" id="saveProjectBtn" style="flex:1">💾 Sauvegarder (Local)</button>
+        <button class="btn btn-cyan" id="exportProjectBtn" style="flex:1">📤 Exporter le projet (.json)</button>
+        <button class="btn btn-cyan" id="importProjectBtn" style="flex:1">📂 Importer un projet</button>
+      </div>
+    </div>
+    
+    <div class="card" style="border: 2px solid var(--navy);">
+      <div class="card-head"><b>🚀 Connexion GitHub (Automatisation)</b></div>
+      <div class="row">
+        <div><label class="lab">Pseudo GitHub</label><input type="text" id="ghUser" placeholder="ex: sabrina97490"></div>
+        <div><label class="lab">Nom du dépôt</label><input type="text" id="ghRepo" placeholder="ex: studio-films-automation"></div>
+      </div>
+      <label class="lab">Token GitHub (PAT)</label>
+      <input type="password" id="ghToken" placeholder="ghp_...">
+      
+      <div style="display:flex; gap:10px; margin-top:1rem;">
+        <button class="btn btn-mega" id="pushToGithubBtn" style="background:var(--navy); flex:1">⬆️ Envoyer sur GitHub</button>
+        <button class="btn btn-mega" id="pullFromGithubBtn" style="background:var(--green); flex:1">⬇️ Récupérer les vidéos</button>
+      </div>
+      <div style="margin-top:1rem;">
+         <button class="btn btn-mega" id="resetVideosBtn" style="background:var(--orange);">♻️ Forcer la régénération (Effacer toutes les vidéos)</button>
+      </div>
+      <div id="ghStatus" class="status hidden"></div>
+    </div>
+  </section>
+
+  <section id="tab-import" class="hidden">
+    <div class="card">
+      <div class="card-head"><b>Import de storyboard (.md)</b></div>
+      <div style="border:2px dashed var(--line);padding:2rem;text-align:center;border-radius:12px;background:#f7f9fc">
+        <input type="file" id="mdInput" accept=".md,.txt" style="border:none;background:transparent">
+      </div>
+      <div id="mdPreview" class="hidden" style="margin-top:1rem">
+        <div class="status" id="mdStatus"></div>
+        <div id="mdShotsPreview" style="margin-top:.5rem;max-height:200px;overflow-y:auto"></div>
+        <button class="btn btn-green" id="confirmImportBtn" style="margin-top:1rem">✓ Confirmer l'import dans le storyboard</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-analyze" class="hidden">
+    <div class="card">
+      <div class="card-head"><b>🎭 Extraction Automatique (Personnages & Lieux)</b></div>
+      <button class="btn btn-mega" id="analyzeBtn" style="background:var(--navy)">🔍 Analyser le Storyboard</button>
+      <div id="analyzeStatus" class="status hidden"></div>
+      <div id="analyzeResults" class="hidden" style="margin-top:2rem;">
+        <h3 style="font-size:1rem;margin-bottom:1rem;">Personnages Détectés</h3>
+        <div id="charactersGrid" class="ref-grid"></div>
+        <h3 style="font-size:1rem;margin-bottom:1rem;margin-top:2rem;">Lieux Détectés</h3>
+        <div id="locationsGrid" class="ref-grid"></div>
+      </div>
+    </div>
+    <div class="card" style="border: 2px solid var(--gold);">
+      <div class="card-head"><b>📤 Vos Propres Références Visuelles (Master Prompt)</b></div>
+      <div style="border:2px dashed var(--line);padding:1.5rem;text-align:center;border-radius:12px;background:#f7f9fc">
+        <input type="file" id="customRefInput" accept="image/*" multiple style="border:none;background:transparent">
+      </div>
+      <div id="customRefGrid" class="ref-grid"></div>
+      <button class="btn btn-mega" id="extractStyleBtn" style="background:var(--gold); margin-top:1rem">🎨 Extraire le Style (Master Prompt)</button>
+      <div id="styleStatus" class="status hidden"></div>
+    </div>
+  </section>
+
+  <section id="tab-storyboard" class="hidden">
+    <div class="card">
+      <div class="card-head"><b>Storyboard</b> — <span id="sbCount">0</span> plans · <span id="vidCount" style="color:var(--green)">0</span> vidéo(s) prête(s)</div>
+      <div style="display:flex;gap:.5rem;margin-bottom:1rem">
+        <button class="btn btn-gold" id="addShotBtn">+ Ajouter un plan</button>
+        <button class="btn btn-red" id="clearShotsBtn">🗑 Vider le storyboard</button>
+      </div>
+      <div id="shotList"></div>
+    </div>
+  </section>
+
+  <section id="tab-genimg" class="hidden">
+    <div class="card">
+      <div class="card-head"><b>Génération & Upload des images</b></div>
+      <div class="segmented" id="genMode" style="margin-bottom:1rem">
+        <button class="active" data-genmode="provided">Je fournis mes images</button>
+        <button data-genmode="generated">L'outil génère</button>
+        <button data-genmode="hybrid">Hybride</button>
+      </div>
+      <div class="row">
+        <div><label class="lab">Concurrence (0 = max)</label><input type="number" id="concurrencySelect" value="2" min="1" max="20"></div>
+        <div><label class="lab">Variantes par plan</label><input type="number" id="variantsSelect" value="1" min="1" max="5"></div>
+      </div>
+      <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-top:1rem">
+        <button class="btn btn-gold" id="generateImagesBtn" style="flex:1">🤖 Générer les images manquantes</button>
+        <button class="btn btn-cyan" id="uploadAllBtn" style="flex:1">📤 Uploader un lot d'images</button>
+      </div>
+      <div id="genImgSteps" class="hidden" style="margin-top:1rem"></div>
+    </div>
+    <div id="imgGrid"></div>
+  </section>
+
+  <section id="tab-genvid" class="hidden">
+    <!-- SECTION : CHOISIR UNE VIDÉO À GÉNÉRER -->
+    <div class="card" style="border: 2px solid var(--navy);">
+      <div class="card-head"><b>🎯 Génération Individuelle (Choisir un plan)</b></div>
+      <p style="font-size:12px;color:var(--ink2);margin-bottom:1rem;">Cliquez sur le bouton sous l'image pour générer uniquement cette vidéo.</p>
+      <div id="vidIndividualGrid"></div>
+    </div>
+
+    <!-- EXISTANT : GÉNÉRATION PAR LOT -->
+    <div class="card">
+      <div class="card-head"><b>⚡ Génération par lot (Toutes les vidéos manquantes)</b></div>
+      <p class="hint-line" style="margin-bottom:1rem;color:var(--orange)">⚠️ L'API Agnes limite le nombre de vidéos simultanées. Gardez la concurrence à 1.</p>
+      <div class="row">
+        <div><label class="lab">Concurrence</label><input type="number" id="vidConcurrency" value="1" min="1" max="5"></div>
+        <div><label class="lab">Durée (s)</label><input type="number" id="vidSecondsDefault" value="5" min="1" max="12"></div>
+      </div>
+      <button class="btn-mega" id="generateVideosBtn">🎞️ Générer toutes les vidéos manquantes</button>
+      <div id="genVidSteps" class="hidden" style="margin-top:1rem"></div>
+    </div>
+    <div id="vidGrid" class="result-grid"></div>
+  </section>
+
+  <section id="tab-genvoice" class="hidden">
+    <div class="card">
+      <div class="card-head"><b>Voix Off (Puter.js)</b></div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+        <span id="puterStatus" style="font-weight:bold; color:var(--orange);">Vérification...</span>
+        <button class="btn btn-cyan" id="puterLoginBtn">🔑 Se connecter</button>
+      </div>
+      <div class="row">
+        <div><label class="lab">Choisir la voix</label><select id="voiceSelect"><option value="Remi|neural" selected>Rémi (Homme)</option><option value="Lea|neural">Léa (Femme)</option><option value="browser">Voix du navigateur</option></select></div>
+        <div style="display:flex; align-items:center; padding-top:20px;"><label style="margin:0; cursor:pointer; display:flex; gap:8px;"><input type="checkbox" id="voiceEnabled" checked> Activer Voix</label></div>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <button class="btn btn-cyan" id="testVoiceBtn" style="flex:1">▶ Tester la voix</button>
+        <button class="btn btn-gold" id="generateVoicesBtn" style="flex:2">🎙️ Générer toutes les voix</button>
+      </div>
+      <div id="genVoiceSteps" style="margin-top:1rem"></div>
+    </div>
+  </section>
+
+  <section id="tab-export" class="hidden">
+    <div class="card">
+      <div class="card-head"><b>Export ZIP</b></div>
+      <label class="lab">Nom du fichier</label>
+      <input type="text" id="exportZipName" placeholder="mon-projet">
+      <button class="btn-mega" id="exportZipBtn" style="margin-top:1rem">📦 Télécharger le ZIP</button>
+      <div id="exportStatus" class="status hidden"></div>
+    </div>
+  </section>
+</div>
+
+<div id="loginBox" class="card" style="max-width:400px;margin:15vh auto">
+  <h1>Studio Films</h1>
+  <label class="lab">Pseudo</label><input type="text" id="loginUser">
+  <label class="lab">PIN (4 chiffres)</label><input type="password" id="loginPin" maxlength="4">
+  <button class="btn-mega" id="loginBtn">Entrer</button>
+  <div id="loginStatus" class="status"></div>
+</div>
+
+<div id="apiPanel">
+  <div id="apiHead"><span>🔑 CLÉS API AGNES</span><span id="apiChevron">▲</span></div>
+  <div id="apiBody">
+    <p style="font-size:11px;margin-bottom:.5rem;color:#9db6d1">Collez vos clés Agnes (une par ligne)</p>
+    <textarea id="apiInput" style="min-height:80px"></textarea>
+    <div style="display:flex;gap:.5rem;margin-top:.5rem"><button class="btn btn-gold" id="apiValidate">Valider</button><button class="btn btn-cyan" id="apiClear">Effacer</button></div>
+    <div id="apiStatus" class="status">Aucune clé</div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const AGNES_BASE = 'https://apihub.agnes-ai.com/v1';
+const AGNES_IMG_MODEL = 'agnes-image-2.5-flash';
+const AGNES_VID_MODEL = 'agnes-video-2.5-flash';
+const AGNES_TXT_MODEL = 'agnes-3.0-flash';
+const $ = id => document.getElementById(id);
+const esc = s => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+let API_KEYS=[], PROJECT=null, SHOTS=[], REFERENCES=[], GEN_MODE='provided', TEMP_SHOTS=[];
+let KEY_POOL = [];
+let IS_PUTER_CONNECTED = false;
+let EXTRACTED_ENTITIES = { characters: [], locations: [] };
+let GLOBAL_STYLE_PROMPT = "";
+
+function toast(msg, type=''){ const t=$('toast'); t.textContent=msg; t.className='on '+type; setTimeout(()=>t.className=type, 3000); }
+function sanitizeKeys(keys) { const out=[]; (Array.isArray(keys)?keys:[]).forEach(k=>{ if(typeof k!=='string')return; k=k.replace(/[^\x00-\x7F]/g,"").trim(); if(k.length<20||!k.startsWith('sk-'))return; if(!out.includes(k))out.push(k); }); return out; }
+
+// --- NOUVEAU SYSTEME DE POOL DE CLES ET COOLDOWN ---
+function initKeyPool(keys) {
+  KEY_POOL = keys.map((key, i) => ({ id: i, key, status: 'idle', cooldownUntil: 0 }));
+}
+
+async function acquireKey() {
+  while (true) {
+    const now = Date.now();
+    KEY_POOL.forEach(k => { if (k.status === 'cooldown' && now >= k.cooldownUntil) k.status = 'idle'; });
+    const available = KEY_POOL.find(k => k.status === 'idle');
+    if (available) {
+      available.status = 'busy';
+      return available;
+    }
+    await new Promise(r => setTimeout(r, 500));
+  }
+}
+
+async function callWithPool(fn, label='appel') {
+  let lastErr;
+  for (let attempt=0; attempt<5; attempt++) {
+    const k = await acquireKey();
+    try { 
+      const r = await fn(k.key); 
+      k.status='idle'; 
+      return r; 
+    } catch (e) {
+      lastErr = e;
+      if (e.code === 429 || String(e.message).includes('429') || String(e.message).includes('queue_full')) {
+        k.status = 'cooldown';
+        k.cooldownUntil = Date.now() + 30000; // 30 secondes de pause
+      } else {
+        k.status = 'idle';
+      }
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  }
+  throw lastErr;
+}
+
+// --- PUTER.JS AUTH ---
+async function checkPuter() { const statusEl = $('puterStatus'); const loginBtn = $('puterLoginBtn'); if (!window.puter) { statusEl.textContent = 'Puter.js non chargé'; return; } try { const signedIn = await puter.auth.isSignedIn(); if (signedIn) { const user = await puter.auth.getUser(); IS_PUTER_CONNECTED = true; statusEl.innerHTML = `<span style="color:var(--green)">✓ Connecté (${user.username})</span>`; loginBtn.style.display = 'none'; } else { IS_PUTER_CONNECTED = false; statusEl.innerHTML = `Non connecté`; statusEl.style.color = 'var(--orange)'; loginBtn.style.display = 'inline-flex'; } } catch (e) { statusEl.textContent = 'Erreur Puter'; statusEl.style.color = 'var(--red)'; } }
+$('puterLoginBtn').onclick = async () => { if (!window.puter) return alert('Puter non chargé'); try { await puter.auth.signIn(); checkPuter(); } catch (e) { toast('Erreur connexion', 'err'); } };
+async function generateAudioPuter(text, voiceVal) { if (!window.puter || !IS_PUTER_CONNECTED || voiceVal === 'browser') return null; const [voice, engine] = voiceVal.split('|'); try { const audio = await puter.ai.txt2speech(text, { voice, engine, language: 'fr-FR' }); audio.preload = 'auto'; audio.style.display = 'none'; document.body.appendChild(audio); return audio; } catch (e) { return null; } }
+function speakBrowser(text) { if (!('speechSynthesis' in window)) return; speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'fr-FR'; speechSynthesis.speak(u); }
+async function testVoice() { if (!IS_PUTER_CONNECTED && $('voiceSelect').value !== 'browser') return toast("Connectez-vous à Puter", 'err'); const voiceVal = $('voiceSelect').value; toast("Test...", "info"); if (voiceVal === 'browser') { speakBrowser("Bonjour."); } else { const audio = await generateAudioPuter("Bonjour.", voiceVal); if (audio) audio.play(); else toast("Échec", "err"); } }
+
+// --- GITHUB ---
+$('pushToGithubBtn').onclick = async () => {
+  const user = $('ghUser').value.trim(), repo = $('ghRepo').value.trim(), token = $('ghToken').value.trim();
+  if (!user || !repo || !token) return toast('Remplissez les infos', 'err');
+  $('ghStatus').classList.remove('hidden'); $('ghStatus').textContent = '⏳ Envoi...';
+  try {
+    for (let s of SHOTS) {
+      if(!s.images) continue;
+      for (let i = 0; i < s.images.length; i++) {
+        let img = s.images[i];
+        if (img.url.startsWith('data:image/')) {
+          let ext = img.url.includes('image/jpeg') ? 'jpg' : 'png'; let filename = `${s.ident}_${i}.${ext}`;
+          $('ghStatus').textContent = `⏳ Upload image ${filename}...`;
+          const base64Content = img.url.split(',')[1];
+          let sha = null;
+          const getRes = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/images/${filename}`, { headers: { 'Authorization': `Bearer ${token}` } });
+          if (getRes.ok) { const data = await getRes.json(); sha = data.sha; }
+          const putRes = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/images/${filename}`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ message: `🤖 Upload ${filename}`, content: base64Content, sha: sha }) });
+          if (!putRes.ok) throw new Error('Erreur image');
+          img.url = `https://raw.githubusercontent.com/${user}/${repo}/main/images/${filename}`;
+          await LocalAPI.saveShot(s);
+        }
+      }
+    }
+    
+    const formattedShots = SHOTS.map(s => ({ 
+        ident: s.ident, 
+        title: s.title, 
+        anim_prompt: s.anim_prompt || s.script || s.description || "Cinematic motion", 
+        images: s.images.map(img => ({ url: img.url })), 
+        video_url: s.video_url || null 
+    }));
+    
+    const jsonContent = JSON.stringify(formattedShots, null, 2);
+    let sha = null;
+    const getResJson = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/storyboard.json`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (getResJson.ok) { sha = (await getResJson.json()).sha; }
+    const base64Content = btoa(unescape(encodeURIComponent(jsonContent)));
+    const putResJson = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/storyboard.json`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ message: '🤖 Update', content: base64Content, sha: sha }) });
+    if (!putResJson.ok) throw new Error('Erreur JSON');
+    $('ghStatus').className = 'status ok'; $('ghStatus').textContent = '✅ Envoyé !';
+  } catch (e) { $('ghStatus').className = 'status err'; $('ghStatus').textContent = '❌ ' + e.message; }
+};
+
+$('pullFromGithubBtn').onclick = async () => {
+  const user = $('ghUser').value.trim(), repo = $('ghRepo').value.trim();
+  if (!user || !repo) return toast('Remplissez le pseudo et le dépôt', 'err');
+  $('ghStatus').classList.remove('hidden'); 
+  $('ghStatus').textContent = '⏳ Téléchargement du JSON depuis GitHub...';
+  $('ghStatus').className = 'status';
+
+  try {
+    const url = `https://raw.githubusercontent.com/${user}/${repo}/main/storyboard.json?t=${Date.now()}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Fichier storyboard.json introuvable sur ce dépôt.');
+    
+    const remoteData = await res.json();
+    if (!Array.isArray(remoteData)) throw new Error("Le fichier sur GitHub n'est pas un format valide.");
+
+    let videoCount = 0;
+    for (const remoteShot of remoteData) {
+      const localShot = SHOTS.find(s => s.ident === remoteShot.ident);
+      if (localShot && remoteShot.video_url) {
+        localShot.video_url = remoteShot.video_url;
+        await LocalAPI.saveShot(localShot);
+        videoCount++;
+      }
+    }
+    
+    renderShots();
+    renderIndividualVideos();
+    if (videoCount > 0) {
+      $('ghStatus').className = 'status ok'; 
+      $('ghStatus').textContent = `✅ ${videoCount} vidéo(s) récupérée(s) !`;
+    } else {
+      $('ghStatus').className = 'status err'; 
+      $('ghStatus').textContent = `❌ Aucune vidéo trouvée.`;
+    }
+  } catch (e) { 
+    $('ghStatus').className = 'status err'; 
+    $('ghStatus').textContent = '❌ ' + e.message; 
+  }
+};
+
+// --- FONCTION RESET VIDÉOS ---
+$('resetVideosBtn').onclick = async () => {
+  if (!confirm("⚠️ Cela va effacer TOUS les liens vidéos de votre storyboard. Le script GitHub régénérera tout avec les nouveaux prompts. Continuer ?")) return;
+  for (let s of SHOTS) {
+    s.video_url = null;
+    await LocalAPI.saveShot(s);
+  }
+  renderShots();
+  renderIndividualVideos();
+  toast("Tous les liens vidéos ont été effacés. Pensez à envoyer sur GitHub !", "ok");
+};
+
+// --- ANALYSE ET STYLE ---
+async function analyzeStoryboard() {
+  if (!API_KEYS.length) return toast('Clés API requises', 'err');
+  $('analyzeStatus').classList.remove('hidden');
+  $('analyzeStatus').textContent = 'Analyse en cours...';
+  $('analyzeStatus').className = 'status';
+  
+  try {
+    const text = SHOTS.map(s => s.description + '\n' + s.script).join('\n');
+    if (!text.trim()) throw new Error('Storyboard vide');
+    
+    const prompt = `Analyse ce texte et extrait les personnages et les lieux. Réponds UNIQUEMENT avec un objet JSON valide contenant deux tableaux : "characters" (noms) et "locations" (noms).\n\nTexte:\n${text}`;
+    const res = await LocalAPI.agnesCall('/chat/completions', {
+      model: AGNES_TXT_MODEL,
+      messages: [{ role: 'user', content: prompt }],
+      response_format: { type: "json_object" }
+    });
+    
+    let content = res.choices[0].message.content;
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) content = jsonMatch[0];
+    const data = JSON.parse(content);
+    
+    EXTRACTED_ENTITIES = { characters: data.characters || [], locations: data.locations || [] };
+    
+    renderEntities();
+    $('analyzeStatus').textContent = 'Analyse terminée.';
+    $('analyzeStatus').className = 'status ok';
+  } catch(e) {
+    $('analyzeStatus').textContent = 'Erreur: ' + e.message;
+    $('analyzeStatus').className = 'status err';
+  }
+}
+
+function renderEntities() {
+  const charGrid = $('charactersGrid');
+  const locGrid = $('locationsGrid');
+  $('analyzeResults').classList.remove('hidden');
+  
+  charGrid.innerHTML = EXTRACTED_ENTITIES.characters.map((c, i) => `
+    <div class="ref-card">
+      <div style="height:150px; display:grid; place-items:center; background:#e8eef4; border-radius:8px; margin-bottom:10px; color:var(--ink3);">
+        Pas d'image
+      </div>
+      <div style="font-weight:bold;">${esc(c)}</div>
+      <button class="btn btn-mini" onclick="generateRefImage('character', ${i})" style="margin-top:5px;">Générer</button>
+    </div>
+  `).join('') || '<p class="hint-line">Aucun personnage trouvé.</p>';
+  
+  locGrid.innerHTML = EXTRACTED_ENTITIES.locations.map((l, i) => `
+    <div class="ref-card">
+      <div style="height:150px; display:grid; place-items:center; background:#e8eef4; border-radius:8px; margin-bottom:10px; color:var(--ink3);">
+        Pas d'image
+      </div>
+      <div style="font-weight:bold;">${esc(l)}</div>
+      <button class="btn btn-mini" onclick="generateRefImage('location', ${i})" style="margin-top:5px;">Générer</button>
+    </div>
+  `).join('') || '<p class="hint-line">Aucun lieu trouvé.</p>';
+}
+
+async function generateRefImage(type, index) {
+  if (!API_KEYS.length) return toast('Clés API requises', 'err');
+  const name = type === 'character' ? EXTRACTED_ENTITIES.characters[index] : EXTRACTED_ENTITIES.locations[index];
+  const prompt = `${type === 'character' ? 'Portrait' : 'Vue'} de ${name}. ${GLOBAL_STYLE_PROMPT || ''}`;
+  toast('Génération...', 'info');
+  try {
+    const url = await LocalAPI.genImage(prompt, "1:1");
+    await LocalAPI.saveReference({ type, name, url });
+    const grid = type === 'character' ? $('charactersGrid') : $('locationsGrid');
+    const card = grid.children[index];
+    card.querySelector('div').innerHTML = `<img src="${url}" style="width:100%; height:100%; object-fit:cover; border-radius:8px;">`;
+    toast('Image générée', 'ok');
+  } catch(e) {
+    toast('Erreur: ' + e.message, 'err');
+  }
+}
+
+async function extractStyle() {
+  if (!API_KEYS.length) return toast('Clés API requises', 'err');
+  const refs = (await LocalAPI.getReferences()).filter(r => r.type === 'custom');
+  if (!refs.length) return toast('Ajoutez des images de référence d\'abord', 'warn');
+  
+  $('styleStatus').classList.remove('hidden');
+  $('styleStatus').textContent = 'Extraction du style en cours...';
+  $('styleStatus').className = 'status';
+  
+  try {
+    const content = refs.map(r => ({ type: "image_url", image_url: { url: r.url } }));
+    content.push({ type: "text", text: "Décris le style visuel de ces images en un prompt détaillé et concis (moins de 50 mots) pour générer d'autres images dans le même style. Sois précis sur la lumière, les couleurs, l'ambiance et le médium." });
+    
+    const res = await LocalAPI.agnesCall('/chat/completions', {
+      model: AGNES_TXT_MODEL,
+      messages: [{ role: 'user', content }]
+    });
+    
+    GLOBAL_STYLE_PROMPT = res.choices[0].message.content.trim();
+    $('styleStatus').textContent = "Style actif : " + GLOBAL_STYLE_PROMPT;
+    $('styleStatus').className = "status ok";
+    
+    if (PROJECT) {
+      PROJECT.global_style = GLOBAL_STYLE_PROMPT;
+      await LocalAPI.saveProject(PROJECT);
+    }
+    toast('Style extrait avec succès', 'ok');
+  } catch(e) {
+    $('styleStatus').textContent = 'Erreur: ' + e.message;
+    $('styleStatus').className = 'status err';
+  }
+}
+
+// --- IMPORT MD ---
+function parseMd(text) {
+  const lines = text.split('\n');
+  const shots = [];
+  let currentShot = null;
+  for (let line of lines) {
+    line = line.trim();
+    if (line.startsWith('## ') || line.startsWith('# ')) {
+      if (currentShot) shots.push(currentShot);
+      let title = line.replace(/^#+\s*/, '');
+      let ident = '';
+      const match = title.match(/^([^-]+)\s*-\s*(.+)/);
+      if (match) {
+        ident = match[1].trim();
+        title = match[2].trim();
+      }
+      currentShot = {
+        ident: ident,
+        title: title,
+        description: '',
+        script: '',
+        image_prompt: '',
+        anim_prompt: '',
+        duration: 5,
+        images: []
+      };
+    } else if (currentShot) {
+      if (line.toLowerCase().startsWith('description:')) currentShot.description = line.substring(12).trim();
+      else if (line.toLowerCase().startsWith('script:')) currentShot.script = line.substring(7).trim();
+      else if (line.toLowerCase().startsWith('image prompt:')) currentShot.image_prompt = line.substring(13).trim();
+      else if (line.toLowerCase().startsWith('anim prompt:') || line.toLowerCase().startsWith('animation prompt:')) currentShot.anim_prompt = line.substring(12).trim();
+      else if (line.toLowerCase().startsWith('durée:') || line.toLowerCase().startsWith('duration:')) {
+         const val = line.split(':')[1];
+         if(val) currentShot.duration = parseFloat(val.trim()) || 5;
+      }
+      else if (line) currentShot.description += (currentShot.description ? '\n' : '') + line;
+    }
+  }
+  if (currentShot) shots.push(currentShot);
+  return shots;
+}
+
+const LocalAPI = (() => {
+  let db = null;
+  async function openDB() { return new Promise((res, rej) => { const rq = indexedDB.open('studio_db_fix', 1); rq.onupgradeneeded = () => { const d = rq.result; d.createObjectStore('users', {keyPath:'id', autoIncrement:true}); d.createObjectStore('projects', {keyPath:'id', autoIncrement:true}); d.createObjectStore('shots', {keyPath:'id', autoIncrement:true}); d.createObjectStore('references', {keyPath:'id', autoIncrement:true}); }; rq.onsuccess = () => { db = rq.result; res(db); }; rq.onerror = rej; }); }
+  const rq2p = r => new Promise((res, rej) => { r.onsuccess=()=>res(r.result); r.onerror=rej; });
+  async function store(n, m) { const d=await openDB(); return d.transaction(n,m||'readonly').objectStore(n); }
+  async function getAll(n) { const s=await store(n); return rq2p(s.getAll()); }
+  async function put(n, o) { if (o.id === 0 || o.id === undefined) delete o.id; const s=await store(n,'readwrite'); return rq2p(s.put(o)); }
+  async function clear(n) { const s=await store(n,'readwrite'); return rq2p(s.clear()); }
+  
+  return {
+    async login(u, p) { const users = await getAll('users'); let user = users.find(x => x.name === u); if (user) { if (user.pin !== p) throw new Error('PIN incorrect'); } else { const id = await put('users', {name:u, pin:p}); user = {id, name:u, pin:p}; } localStorage.setItem('sf_session', JSON.stringify(user)); return user; },
+    async saveProject(d) { if(PROJECT) d.id = PROJECT.id; const id = await put('projects', d); PROJECT = {...d, id}; return id; },
+    async getProject() { const p = await getAll('projects'); return p[0]; },
+    async saveShot(s) { if(!s.images) s.images = []; const id = await put('shots', s); s.id = id; return id; },
+    async getShots() { const shots = await getAll('shots'); shots.forEach(s => { if(s.order === undefined) s.order = s.id; if(!s.images) s.images = []; }); return shots.sort((a,b)=>a.order - b.order); },
+    async clearShots() { return await clear('shots'); },
+    async saveReference(r) { const id = await put('references', r); r.id = id; return id; },
+    async getReferences() { return await getAll('references'); },
+    async deleteReference(id) { const s=await store('references','readwrite'); return rq2p(s.delete(id)); },
+    
+    // --- APPELS API AVEC POOL ---
+    async agnesCall(path, payload, timeout=60) {
+      return await callWithPool(async (key) => {
+        const ctl = new AbortController(); const tid = setTimeout(()=>ctl.abort(), timeout*1000);
+        try {
+          const r = await fetch(AGNES_BASE+path, { method:'POST', signal:ctl.signal, headers:{'Content-Type':'application/json','Authorization':'Bearer '+key}, body:JSON.stringify(payload) });
+          const txt = await r.text(); 
+          if (!r.ok) {
+             let errMsg = txt.slice(0,100);
+             try { const j = JSON.parse(txt); if(j.error && j.error.message) errMsg = j.error.message; } catch(e){}
+             throw new Error(errMsg);
+          }
+          return JSON.parse(txt);
+        } finally { clearTimeout(tid); }
+      }, path);
+    },
+    async genImage(prompt, ratio) {
+      let finalPrompt = prompt;
+      if (GLOBAL_STYLE_PROMPT) { finalPrompt = `${GLOBAL_STYLE_PROMPT}. ${prompt}`; }
+      const d = await this.agnesCall('/images/generations', {model:AGNES_IMG_MODEL, prompt: finalPrompt, ratio, extra_body:{response_format:'url'}}, 120);
+      return d.data[0].url;
+    },
+    
+    // --- GENERATION VIDEO AMELIOREE ---
+    async genVideo(prompt, imgStart, onProgress) {
+      return await callWithPool(async (key) => {
+        const p = { model: AGNES_VID_MODEL, prompt: prompt || 'Cinematic motion', seconds: "5", mode: "keyframe", size: "720P" };
+        if (imgStart) p.first_frame = imgStart;
+        
+        let videoId = null;
+        for (let attempt = 0; attempt < 15; attempt++) {
+          const ctl = new AbortController(); const tid = setTimeout(()=>ctl.abort(), 60000);
+          try {
+            const r = await fetch(AGNES_BASE+'/videos', { method:'POST', signal:ctl.signal, headers:{'Content-Type':'application/json','Authorization':'Bearer '+key}, body:JSON.stringify(p) });
+            const txt = await r.text(); 
+            let d; try { d = JSON.parse(txt); } catch(e) { d = {}; }
+            
+            if (!r.ok || d.code === 'video_queue_full') { 
+              if (onProgress) onProgress('file_attente', (attempt+1) * 10); 
+              // Attente exponentielle : 15s, 20s, 25s... jusqu'à 1min max
+              const wait = Math.min(15000 + (attempt * 5000), 60000);
+              await new Promise(res => setTimeout(res, wait)); 
+              continue; 
+            }
+            videoId = d.video_id || d.task_id || d.id; 
+            if (videoId) break;
+          } catch(e) { 
+            if (attempt === 14) throw e; 
+            await new Promise(res => setTimeout(res, 5000)); 
+          } finally { clearTimeout(tid); }
+        }
+        
+        if (!videoId) throw new Error('File pleine (15 essais).');
+
+        const start = Date.now();
+        while(true) {
+          await new Promise(r=>setTimeout(r, 5000)); // 5s entre chaque check
+          if (Date.now() - start > 1200000) throw new Error('Timeout (20min)');
+          
+          try {
+            const r = await fetch(`https://apihub.agnes-ai.com/agnesapi?video_id=${videoId}&model_name=${AGNES_VID_MODEL}`, {headers:{'Authorization':'Bearer '+key}});
+            const res = await r.json();
+            
+            // Gestion robuste des statuts
+            const status = res.status || (res.data && res.data.status) || res.task_status;
+            if(onProgress && status) onProgress(status, Math.round((Date.now()-start)/1000));
+            
+            if(status === 'completed') {
+              return res.url || res.video_url || (res.data && res.data.url) || (res.data && res.data.video_url);
+            }
+            if(status === 'failed') {
+              throw new Error(res.error || (res.data && res.data.error) || 'Échec');
+            }
+          } catch(e) {
+            // On ignore les erreurs de réseau mineures pendant le polling
+          }
+        }
+      }, 'génération vidéo');
+    }
+  }
+})();
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  ['project','import','analyze','storyboard','genimg','genvid','genvoice','export'].forEach(id => $(`tab-${id}`).classList.toggle('hidden', id !== name));
+  if(name==='storyboard') renderShots();
+  if(name==='genimg') renderImgGrid();
+  if(name==='genvid') { renderIndividualVideos(); renderVidGrid(); }
+  if(name==='analyze') loadCustomReferences();
+}
+
+// --- RENDER STORYBOARD ---
+function renderShots() {
+  $('sbCount').textContent = SHOTS.length;
+  const vidCount = SHOTS.filter(s => s.video_url).length;
+  $('vidCount').textContent = vidCount;
+  if(!SHOTS.length) { $('shotList').innerHTML = '<p class="hint-line">Aucun plan.</p>'; return; }
+  
+  $('shotList').innerHTML = SHOTS.map((s, index) => {
+    let mainImg = s.images.length > 0 ? s.images[0].url : null;
+    let thumbs = s.images.slice(1).map((img, idx) => `<div class="thumb" title="${esc(img.name)}"><img src="${img.url}"><button class="rm" onclick="removeImage(${s.id}, ${idx + 1})" title="Supprimer">✕</button></div>`).join('');
+    const isFirst = index === 0; const isLast = index === SHOTS.length - 1;
+    return `
+    <div class="shot-card">
+      <div class="shot-head">
+        <input type="text" class="shot-id" value="${esc(s.ident||'')}" oninput="updateShotField(${s.id}, 'ident', this.value)" placeholder="ID" style="width:90px; text-align:center; font-weight:800; color:var(--navy); background:#fff; border:1px solid var(--line); border-radius:6px; min-height:30px; padding:.2rem; margin:0;">
+        <input type="text" class="shot-title" value="${esc(s.title||'')}" oninput="updateShotField(${s.id}, 'title', this.value)" placeholder="Titre du plan" style="flex:1; font-weight:700; font-size:.82rem; color:var(--navy); background:transparent; border:none; border-bottom:1px dashed var(--line); padding:.2rem; margin:0; min-height:auto;">
+      </div>
+      <div class="shot-body">
+        <div class="shot-media">
+          ${mainImg ? `<img src="${mainImg}" class="main-img">` : '<div style="background:#ccc;aspect-ratio:16/9;border-radius:8px;display:grid;place-items:center;color:#666">Aucune image</div>'}
+          ${s.video_url ? `<video src="${s.video_url}" controls preload="metadata"></video>` : '<div style="font-size:11px;color:var(--ink3);margin-top:5px;text-align:center;">Vidéo non générée</div>'}
+          <div class="thumbnails">${thumbs}</div>
+        </div>
+        <div class="shot-fields">
+          <div class="row">
+            <div><label>Durée (s)</label><input type="number" value="${s.duration||0}" oninput="updateShotField(${s.id}, 'duration', this.value)"></div>
+            <div><label>ID Voix</label><input type="text" value="${esc(s.voiceId||'')}" placeholder="Défaut" oninput="updateShotField(${s.id}, 'voiceId', this.value)"></div>
+          </div>
+          <label>Description (Images, Jeu, Clip)</label>
+          <textarea oninput="updateShotField(${s.id}, 'description', this.value)">${esc(s.description||'')}</textarea>
+          <label>Script Voix Off (Voix, Son)</label>
+          <textarea oninput="updateShotField(${s.id}, 'script', this.value)">${esc(s.script||'')}</textarea>
+          <label>Prompt Image</label>
+          <textarea oninput="updateShotField(${s.id}, 'image_prompt', this.value)">${esc(s.image_prompt||'')}</textarea>
+          <label style="color:var(--orange);margin-top:8px;">Prompt Animation (Vidéo)</label>
+          <textarea oninput="updateShotField(${s.id}, 'anim_prompt', this.value)" style="border-color:var(--orange);">${esc(s.anim_prompt||'')}</textarea>
+        </div>
+      </div>
+      <div class="shot-actions">
+        <button class="btn-mini" onclick="moveShot(${s.id}, -1)" ${isFirst ? 'disabled' : ''} title="Monter">⬆️</button>
+        <button class="btn-mini" onclick="moveShot(${s.id}, 1)" ${isLast ? 'disabled' : ''} title="Descendre">⬇️</button>
+        <button class="btn-mini" onclick="addShotAdjacent(${s.id}, 'before')" title="Insérer un plan juste avant" style="margin-left: 1rem;">+ Avant</button>
+        <button class="btn-mini" onclick="addShotAdjacent(${s.id}, 'after')" title="Insérer un plan juste après">+ Après</button>
+        <button class="btn-mini btn-red" style="margin-left:auto" onclick="deleteShot(${s.id})">🗑 Supprimer</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// --- RENDER INDIVIDUAL VIDEOS ---
+function renderIndividualVideos() {
+  const grid = $('vidIndividualGrid');
+  if(!grid) return;
+  
+  const eligible = SHOTS.filter(s => s.images && s.images.length > 0);
+  if(!eligible.length) { grid.innerHTML = '<p class="hint-line">Aucun plan avec image.</p>'; return; }
+
+  grid.innerHTML = eligible.map(s => `
+    <div class="card drop-zone" style="padding:.5rem; text-align:center;">
+      <div style="font-weight:bold; margin-bottom:.5rem; display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:.85rem;color:var(--navy)">${s.ident} - ${esc(s.title).substring(0, 20)}...</span>
+        ${s.video_url ? '<span class="badge" style="background:var(--green);color:#fff;padding:2px 6px;border-radius:10px;font-size:9px">✅ Fait</span>' : ''}
+      </div>
+      <div style="position:relative; margin-bottom:.5rem;">
+        <img src="${s.images[0].url}" style="width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:8px; border:1px solid var(--line);">
+      </div>
+      ${s.video_url ? `<video src="${s.video_url}" controls style="width:100%; border-radius:8px; border:2px solid var(--green); margin-bottom:.5rem;"></video>` : ''}
+      <button class="btn btn-gold" style="width:100%; padding:.3rem; font-size:.65rem; min-height:32px;" onclick="genSingleVideo(${s.id}, this)">
+        ${s.video_url ? '🔄 Régénérer la vidéo' : '▶️ Générer la vidéo'}
+      </button>
+    </div>
+  `).join('');
+}
+
+// --- FONCTION POUR GÉNÉRER UNE SEULE VIDÉO ---
+window.genSingleVideo = async (id, btnElement) => {
+  const s = SHOTS.find(x => x.id === id);
+  if(!s || !s.images.length) return toast("Il n'y a pas d'image pour ce plan", "err");
+  if(!API_KEYS.length) return toast('Configurez vos clés API', 'err');
+
+  const btn = btnElement;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Génération...';
+
+  try {
+    const firstImg = s.images[0].url;
+    const url = await LocalAPI.genVideo(s.anim_prompt || s.script || s.description || "Cinematic motion", firstImg, (status, elapsed) => {
+      if (status === 'file_attente') {
+        btn.innerHTML = `⏳ Pause ${elapsed}s...`;
+      } else {
+        btn.innerHTML = `⏳ ${status} (${elapsed}s)...`;
+      }
+    });
+    
+    s.video_url = url;
+    await LocalAPI.saveShot(s);
+    toast('Vidéo générée !', 'ok');
+    
+    renderShots();
+    renderIndividualVideos();
+    renderVidGrid();
+  } catch (e) {
+    toast(e.message, 'err');
+    btn.disabled = false;
+    btn.innerHTML = s.video_url ? '🔄 Régénérer la vidéo' : '▶️ Générer la vidéo';
+  }
+};
+
+function renderVidGrid() {
+  const grid = $('vidGrid');
+  if(!grid) return;
+  const withVideos = SHOTS.filter(s => s.video_url);
+  if(!withVideos.length) { grid.innerHTML = ''; return; }
+  
+  grid.innerHTML = withVideos.map(s => `
+    <div class="shot-card">
+      <div class="shot-head"><span class="shot-id">${esc(s.ident||'P')}</span><span class="shot-title">${esc(s.title)}</span></div>
+      <div style="padding:.5rem">
+        <video src="${esc(s.video_url)}" controls style="width:100%; border-radius:8px; border:1px solid var(--line)"></video>
+      </div>
+    </div>
+  `).join('');
+}
+
+window.moveShot = async (id, direction) => { const index = SHOTS.findIndex(s => s.id === id); if (index === -1) return; const targetIndex = index + direction; if (targetIndex < 0 || targetIndex >= SHOTS.length) return; const temp = SHOTS[index]; SHOTS[index] = SHOTS[targetIndex]; SHOTS[targetIndex] = temp; for (let i = 0; i < SHOTS.length; i++) { SHOTS[i].order = i + 1; await LocalAPI.saveShot(SHOTS[i]); } renderShots(); };
+window.updateShotField = async (id, field, val) => { const s = SHOTS.find(x => x.id === id); if(s) { s[field] = (field === 'duration') ? parseFloat(val) : val.trim(); await LocalAPI.saveShot(s); } };
+window.removeImage = async (shotId, imgIndex) => { const s = SHOTS.find(x => x.id === shotId); if (!s) return; if (confirm('Supprimer cette image ?')) { s.images.splice(imgIndex, 1); await LocalAPI.saveShot(s); renderShots(); renderImgGrid(); } };
+window.deleteShot = async (id) => { if(!confirm('Supprimer ce plan ?')) return; await LocalAPI.clearShots(); SHOTS = SHOTS.filter(s => s.id !== id); for(const s of SHOTS) await LocalAPI.saveShot(s); renderShots(); renderImgGrid(); };
+window.addShotAdjacent = async (currentId, position) => { SHOTS = await LocalAPI.getShots(); const idx = SHOTS.findIndex(s => s.id === currentId); if(idx === -1) return; let newOrder = (position === 'before') ? (idx === 0 ? SHOTS[0].order - 1 : (SHOTS[idx - 1].order + SHOTS[idx].order) / 2) : (idx === SHOTS.length - 1 ? SHOTS[idx].order + 1 : (SHOTS[idx].order + SHOTS[idx + 1].order) / 2); await LocalAPI.saveShot({ ident: '', title: 'Nouveau plan', order: newOrder, description: '', script: '', duration: 0, images: [] }); SHOTS = await LocalAPI.getShots(); renderShots(); };
+
+function renderImgGrid() {
+  const grid = $('imgGrid');
+  if (!grid) return;
+  if (!SHOTS.length) {
+    grid.innerHTML = '<p class="hint-line">Aucun plan. Ajoutez des plans dans le storyboard.</p>';
+    return;
+  }
+
+  grid.innerHTML = SHOTS.map(s => {
+    const hasImg = s.images && s.images.length > 0;
+    const imgUrl = hasImg ? s.images[0].url : null;
+    
+    let thumbs = s.images.slice(1).map((img, idx) => `<div class="thumb" title="${esc(img.name)}"><img src="${img.url}"><button class="rm" onclick="removeImage(${s.id}, ${idx + 1})" title="Supprimer">✕</button></div>`).join('');
+
+    return `
+      <div class="shot-card drop-zone" ondragover="event.preventDefault(); this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleDrop(event, ${s.id})">
+        <div class="shot-head">
+          <span class="shot-id">${esc(s.ident || 'P')}</span>
+          <span class="shot-title">${esc(s.title)}</span>
+        </div>
+        <div style="padding: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
+          ${hasImg 
+            ? `<img src="${imgUrl}" style="width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:8px; border:1px solid var(--line);">` 
+            : `<div style="width:100%; aspect-ratio:16/9; background:#e8eef4; border-radius:8px; border:1px dashed var(--line); display:grid; place-items:center; color:var(--ink3); font-size:12px;">Aucune image (Glissez-déposez ici)</div>`}
+          
+          ${thumbs ? `<div class="thumbnails" style="margin-top:0.5rem;">${thumbs}</div>` : ''}
+
+          <div>
+            <label style="font:700 10px var(--mono); color:var(--ink2); text-transform:uppercase; margin-top:0.5rem; display:block;">Prompt Image</label>
+            <textarea style="min-height:60px; font-size:11px;" oninput="updateShotField(${s.id}, 'image_prompt', this.value)" placeholder="Description de l'image...">${esc(s.image_prompt || '')}</textarea>
+          </div>
+          
+          <div style="display:flex; gap:0.5rem;">
+            <div style="flex:1;">
+              <label style="font:700 10px var(--mono); color:var(--ink2); text-transform:uppercase; display:block;">Durée (s)</label>
+              <input type="number" style="min-height:30px; font-size:12px;" value="${s.duration || 0}" oninput="updateShotField(${s.id}, 'duration', this.value)">
+            </div>
+            ${hasImg ? `<div style="flex:2; display:flex; align-items:flex-end; gap:0.2rem;">
+               <button class="btn btn-cyan" style="flex:1; min-height:30px; font-size:10px; padding:0.2rem;" onclick="replaceImg(${s.id})">🔄 Remplacer</button>
+               <button class="btn btn-red" style="flex:1; min-height:30px; font-size:10px; padding:0.2rem;" onclick="removeImage(${s.id}, 0)">🗑 Supprimer</button>
+            </div>` : ''}
+          </div>
+          
+          ${!hasImg ? `<div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
+            <button class="btn btn-cyan" style="flex:1; min-height:32px; font-size:10px;" onclick="uploadOneImg(${s.id})">📤 Upload</button>
+            <button class="btn btn-gold" style="flex:1; min-height:32px; font-size:10px;" onclick="genOneImg(${s.id})">🤖 Générer</button>
+          </div>` : `<div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
+             <button class="btn btn-cyan" style="flex:1; min-height:32px; font-size:10px;" onclick="uploadOneImg(${s.id})">📤 Ajouter variante</button>
+             <button class="btn btn-gold" style="flex:1; min-height:32px; font-size:10px;" onclick="genOneImg(${s.id})">🤖 Générer variante</button>
+          </div>`}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+$('mdInput').onchange = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  TEMP_SHOTS = parseMd(text);
+  if (!TEMP_SHOTS.length) {
+    $('mdPreview').classList.add('hidden');
+    return toast('Aucun plan trouvé dans le fichier', 'warn');
+  }
+  $('mdStatus').textContent = `${TEMP_SHOTS.length} plans détectés.`;
+  $('mdStatus').className = 'status ok';
+  $('mdShotsPreview').innerHTML = TEMP_SHOTS.map(s => `<div class="step"><b>${esc(s.ident)}</b> - ${esc(s.title)}</div>`).join('');
+  $('mdPreview').classList.remove('hidden');
+};
+
+$('confirmImportBtn').onclick = async () => {
+  if (!TEMP_SHOTS.length) return;
+  let order = SHOTS.length > 0 ? Math.max(...SHOTS.map(s => s.order)) + 1 : 1;
+  for (const s of TEMP_SHOTS) {
+    s.order = order++;
+    await LocalAPI.saveShot(s);
+  }
+  SHOTS = await LocalAPI.getShots();
+  TEMP_SHOTS = [];
+  $('mdPreview').classList.add('hidden');
+  $('mdInput').value = '';
+  renderShots();
+  switchTab('storyboard');
+  toast('Plans importés avec succès', 'ok');
+};
+
+$('addShotBtn').onclick = async () => {
+  const newShot = {
+    ident: 'Nouveau',
+    title: 'Plan',
+    description: '',
+    script: '',
+    image_prompt: '',
+    anim_prompt: '',
+    duration: 5,
+    images: [],
+    order: SHOTS.length > 0 ? Math.max(...SHOTS.map(s => s.order)) + 1 : 1
+  };
+  await LocalAPI.saveShot(newShot);
+  SHOTS = await LocalAPI.getShots();
+  renderShots();
+};
+
+$('clearShotsBtn').onclick = async () => {
+  if (!confirm('Vider tout le storyboard ?')) return;
+  await LocalAPI.clearShots();
+  SHOTS = [];
+  renderShots();
+  renderImgGrid();
+  renderIndividualVideos();
+  renderVidGrid();
+};
+
+$('exportProjectBtn').onclick = async () => {
+  const data = {
+    project: PROJECT,
+    shots: SHOTS,
+    references: await LocalAPI.getReferences()
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `projet_${(PROJECT && PROJECT.name) ? PROJECT.name.replace(/\s+/g, '_') : 'sans_nom'}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+$('importProjectBtn').onclick = () => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      if (data.project) {
+        await LocalAPI.saveProject(data.project);
+        PROJECT = data.project;
+        $('projectName').value = PROJECT.name || '';
+        $('projectPitch').value = PROJECT.pitch || '';
+      }
+      if (data.shots && Array.isArray(data.shots)) {
+        await LocalAPI.clearShots();
+        for (const s of data.shots) {
+          delete s.id;
+          await LocalAPI.saveShot(s);
+        }
+      }
+      if (data.references) {
+        for (const r of data.references) {
+           delete r.id;
+           await LocalAPI.saveReference(r);
+        }
+      }
+      SHOTS = await LocalAPI.getShots();
+      renderShots();
+      renderImgGrid();
+      renderIndividualVideos();
+      renderVidGrid();
+      await loadCustomReferences();
+      toast('Projet importé avec succès', 'ok');
+    } catch (err) {
+      toast('Erreur lors de l\'import : ' + err.message, 'err');
+    }
+  };
+  input.click();
+};
+
+$('customRefInput').onchange = async (e) => {
+  const files = Array.from(e.target.files);
+  for (const file of files) {
+    if (!file.type.startsWith('image/')) continue;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      await LocalAPI.saveReference({ type: 'custom', url: ev.target.result, name: file.name });
+      await loadCustomReferences();
+    };
+    reader.readAsDataURL(file);
+  }
+};
+
+async function loadCustomReferences() {
+  const refs = await LocalAPI.getReferences();
+  const grid = $('customRefGrid');
+  if (!grid) return;
+  const customRefs = refs.filter(r => r.type === 'custom');
+  if (!customRefs.length) {
+    grid.innerHTML = '<p class="hint-line">Aucune référence.</p>';
+    return;
+  }
+  grid.innerHTML = customRefs.map(r => `
+    <div class="ref-card">
+      <img src="${r.url}">
+      <button class="rm" onclick="deleteCustomRef(${r.id})">✕</button>
+      <div style="font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(r.name)}</div>
+    </div>
+  `).join('');
+}
+
+window.deleteCustomRef = async (id) => {
+  await LocalAPI.deleteReference(id);
+  await loadCustomReferences();
+};
+
+window.handleDrop = async (e, id) => {
+  e.preventDefault();
+  document.querySelectorAll('.drop-zone').forEach(el => el.classList.remove('dragover'));
+  const files = e.dataTransfer.files;
+  if (!files.length) return;
+  const s = SHOTS.find(x => x.id === id);
+  if (!s) return;
+  if (!s.images) s.images = [];
+  for (const file of files) {
+    if (!file.type.startsWith('image/')) continue;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      s.images.push({ url: ev.target.result, name: file.name });
+      await LocalAPI.saveShot(s);
+      renderImgGrid();
+      renderShots();
+    };
+    reader.readAsDataURL(file);
+  }
+};
+
+window.genOneImg = async (id) => {
+  const s = SHOTS.find(x => x.id === id);
+  if (!s || !s.image_prompt) return toast('Prompt image manquant', 'warn');
+  if (!API_KEYS.length) return toast('Aucune clé API configurée', 'err');
+  toast('Génération en cours...', 'info');
+  try {
+    const url = await LocalAPI.genImage(s.image_prompt, "16:9");
+    if (!s.images) s.images = [];
+    s.images.push({ url, name: 'generated.png' });
+    await LocalAPI.saveShot(s);
+    renderImgGrid();
+    renderShots();
+    toast('Image générée', 'ok');
+  } catch (e) {
+    toast('Erreur: ' + e.message, 'err');
+  }
+};
+
+window.uploadOneImg = (id) => {
+  const s = SHOTS.find(x => x.id === id);
+  if (!s) return;
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      if (!s.images) s.images = [];
+      s.images.push({ url: ev.target.result, name: file.name });
+      await LocalAPI.saveShot(s);
+      renderImgGrid();
+      renderShots();
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+};
+
+window.replaceImg = (id) => {
+  const s = SHOTS.find(x => x.id === id);
+  if (!s) return;
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      s.images[0] = { url: ev.target.result, name: file.name };
+      await LocalAPI.saveShot(s);
+      renderImgGrid();
+      renderShots();
+      renderIndividualVideos();
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+};
+
+$('uploadAllBtn').onclick = () => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.multiple = true;
+  input.onchange = async (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    let emptyShots = SHOTS.filter(s => !s.images || s.images.length === 0);
+    if (emptyShots.length < files.length) emptyShots = SHOTS;
+    
+    for (let i = 0; i < files.length; i++) {
+      if (i >= emptyShots.length) break;
+      const s = emptyShots[i];
+      const file = files[i];
+      const reader = new FileReader();
+      await new Promise(res => {
+        reader.onload = async (ev) => {
+          if (!s.images) s.images = [];
+          s.images.push({ url: ev.target.result, name: file.name });
+          await LocalAPI.saveShot(s);
+          res();
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+    renderImgGrid();
+    renderShots();
+    toast('Lot uploadé', 'ok');
+  };
+  input.click();
+};
+
+async function generateAllImagesBatch() {
+  const queue = SHOTS.filter(s => !s.images || s.images.length === 0);
+  if (!queue.length) return toast('Aucun plan sans image', 'warn');
+  if (!API_KEYS.length) return toast('Aucune clé API', 'err');
+  
+  $('genImgSteps').classList.remove('hidden');
+  $('genImgSteps').innerHTML = `<div class="step">Progression: <span id="progImg">0/${queue.length}</span></div>`;
+  const rows = {};
+  queue.forEach((s, i) => {
+    const row = document.createElement('div');
+    row.className = 'step';
+    row.innerHTML = `<span class="ico">⏳</span> <b>${esc(s.ident)}</b> · En attente`;
+    $('genImgSteps').appendChild(row);
+    rows[i] = row;
+  });
+
+  let done = 0;
+  for (let i = 0; i < queue.length; i++) {
+    const s = queue[i];
+    const row = rows[i];
+    row.className = 'step running';
+    row.innerHTML = `<span class="spinner"></span> <b>${esc(s.ident)}</b> · Génération...`;
+    try {
+      if (!s.image_prompt) throw new Error('Pas de prompt');
+      const url = await LocalAPI.genImage(s.image_prompt, "16:9");
+      if (!s.images) s.images = [];
+      s.images.push({ url, name: 'generated.png' });
+      await LocalAPI.saveShot(s);
+      row.className = 'step done';
+      row.innerHTML = `✅ <b>${esc(s.ident)}</b> · Terminé`;
+    } catch (e) {
+      row.className = 'step error';
+      row.innerHTML = `❌ <b>${esc(s.ident)}</b> · ${esc(e.message)}`;
+    }
+    done++;
+    $('progImg').textContent = `${done}/${queue.length}`;
+  }
+  renderImgGrid();
+  renderShots();
+  toast('Génération terminée', 'ok');
+}
+
+async function generateAllVideosBatch() {
+  const conc = parseInt($('vidConcurrency').value)||1; const queue = SHOTS.filter(s=>s.images.length > 0 && !s.video_url);
+  if(!queue.length) { toast('Aucun plan avec image', 'warn'); return; }
+  let cursor=0, done=0; $('genVidSteps').classList.remove('hidden'); $('genVidSteps').innerHTML = `<div class="step">Progression: <span id="progVid">0/${queue.length}</span></div>`;
+  const rows = {}; queue.forEach((s, i) => { const row = document.createElement('div'); row.className = 'step'; row.innerHTML = `<span class="ico">⏳</span><b>${esc(s.ident)}</b> · En attente`; $('genVidSteps').appendChild(row); rows[i] = row; });
+  async function worker() {
+    while(true) {
+      const i = cursor++; if(i >= queue.length) return; const s = queue[i]; const row = rows[i];
+      try {
+        row.className = 'step running'; row.innerHTML = `<span class="spinner"></span> <b>${esc(s.ident)}</b> · Création…`;
+        const firstImg = s.images[0].url;
+        const url = await LocalAPI.genVideo(s.anim_prompt || s.script || "Cinematic motion", firstImg, (status, elapsed) => { if(status === 'file_attente') { row.innerHTML = `<span class="spinner"></span> <b>${esc(s.ident)}</b> · File pleine, pause de ${elapsed}s…`; } else { row.innerHTML = `<span class="spinner"></span> <b>${esc(s.ident)}</b> · ${status} (${elapsed}s)`; } });
+        s.video_url = url; await LocalAPI.saveShot(s); done++; row.className = 'step done'; row.innerHTML = `✅ <b>${esc(s.ident)}</b> · Terminé`;
+      } catch(e) { done++; row.className = 'step error'; row.innerHTML = `❌ <b>${esc(s.ident)}</b> · ${esc(e.message)}`; }
+      $('progVid').textContent = `${done}/${queue.length}`;
+    }
+  }
+  await Promise.all(Array.from({length:conc}, ()=>worker())); 
+  toast('Génération vidéos terminée', 'ok'); 
+  renderIndividualVideos();
+  renderVidGrid();
+}
+
+async function generateAllVoicesBatch() {
+  if (!IS_PUTER_CONNECTED && $('voiceSelect').value !== 'browser') {
+     return toast('Connectez-vous à Puter pour générer les voix.', 'err');
+  }
+  const queue = SHOTS.filter(s => s.script && s.script.trim().length > 0);
+  if (!queue.length) return toast('Aucun script', 'warn');
+  const voiceVal = $('voiceSelect').value;
+  
+  $('genVoiceSteps').innerHTML = '';
+  for (const s of queue) {
+    const row = document.createElement('div');
+    row.className = 'step';
+    row.innerHTML = `<span class="spinner"></span> <b>${esc(s.ident)}</b> · Génération...`;
+    $('genVoiceSteps').appendChild(row);
+    try {
+      if (voiceVal === 'browser') {
+         speakBrowser(s.script);
+         row.innerHTML = `✅ <b>${esc(s.ident)}</b> · (Navigateur)`;
+         row.className = 'step done';
+      } else {
+         const audio = await generateAudioPuter(s.script, voiceVal);
+         if (audio) {
+           row.innerHTML = `✅ <b>${esc(s.ident)}</b> · Prêt <button class="btn-mini" onclick="this.previousElementSibling.play()">▶️ Play</button>`;
+           row.className = 'step done';
+         } else {
+           throw new Error('Échec Puter');
+         }
+      }
+    } catch(e) {
+      row.className = 'step error';
+      row.innerHTML = `❌ <b>${esc(s.ident)}</b> · ${esc(e.message)}`;
+    }
+  }
+  toast('Génération des voix terminée', 'ok');
+}
+
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+document.querySelectorAll('#genMode button').forEach(b => { b.addEventListener('click', () => { document.querySelectorAll('#genMode button').forEach(x => x.classList.remove('active')); b.classList.add('active'); GEN_MODE = b.dataset.genmode; }); });
+$('loginBtn').onclick = async () => { try { const u = await LocalAPI.login($('loginUser').value, $('loginPin').value); $('loginBox').classList.add('hidden'); $('main').classList.remove('hidden'); $('logoutBtn').classList.remove('hidden'); PROJECT = await LocalAPI.getProject(); if(PROJECT) { $('projectName').value = PROJECT.name||''; $('projectPitch').value = PROJECT.pitch||''; if(PROJECT.global_style) { GLOBAL_STYLE_PROMPT = PROJECT.global_style; $('styleStatus').textContent = "Style actif : " + GLOBAL_STYLE_PROMPT; $('styleStatus').className = "status ok"; } } SHOTS = await LocalAPI.getShots(); await loadCustomReferences(); toast('Bienvenue', 'ok'); } catch(e) { $('loginStatus').textContent = e.message; $('loginStatus').className='status err'; } };
+$('logoutBtn').onclick = () => { localStorage.removeItem('sf_session'); location.reload(); };
+$('saveProjectBtn').onclick = async () => { await LocalAPI.saveProject({name:$('projectName').value, pitch:$('projectPitch').value, global_style: GLOBAL_STYLE_PROMPT}); toast('Projet sauvegardé', 'ok'); };
+$('apiValidate').onclick = () => { 
+  const raw = $('apiInput').value.split('\n').filter(l=>l.trim()); 
+  API_KEYS = sanitizeKeys(raw); 
+  initKeyPool(API_KEYS); // <--- Initialisation du pool
+  localStorage.setItem('sf_api_keys', JSON.stringify(API_KEYS)); 
+  $('apiStatus').textContent = API_KEYS.length+' clé(s) valide(s)'; 
+  $('apiStatus').className = 'status ok'; 
+  $('modeTag').textContent = API_KEYS.length?'LIVE ('+API_KEYS.length+')':'NON CONFIGURÉ'; 
+  $('modeTag').className = API_KEYS.length?'live':''; 
+};
+$('apiClear').onclick = () => { 
+  API_KEYS = []; 
+  initKeyPool([]); // <--- Reset du pool
+  localStorage.removeItem('sf_api_keys'); 
+  $('apiInput').value = ''; 
+  $('apiStatus').textContent = 'Aucune clé'; 
+  $('apiStatus').className = 'status'; 
+  $('modeTag').textContent = 'NON CONFIGURÉ'; 
+  $('modeTag').className = ''; 
+};
+$('apiHead').onclick = () => $('apiBody').classList.toggle('open');
+$('generateImagesBtn').onclick = generateAllImagesBatch;
+$('generateVideosBtn').onclick = generateAllVideosBatch;
+$('generateVoicesBtn').onclick = generateAllVoicesBatch;
+$('testVoiceBtn').onclick = testVoice;
+$('analyzeBtn').onclick = analyzeStoryboard;
+$('extractStyleBtn').onclick = extractStyle;
+['ghUser', 'ghRepo', 'ghToken', 'voiceSelect'].forEach(id => { const saved = localStorage.getItem('sf_' + id); if(saved !== null) $(id).value = saved; $(id).addEventListener('change', (e) => localStorage.setItem('sf_' + id, e.target.value)); });
+async function init() { 
+  const savedKeys = JSON.parse(localStorage.getItem('sf_api_keys') || '[]'); 
+  if (savedKeys.length) { 
+    API_KEYS = sanitizeKeys(savedKeys); 
+    initKeyPool(API_KEYS); // <--- Initialisation du pool au démarrage
+    if(API_KEYS.length > 0) { 
+      $('apiInput').value = API_KEYS.join('\n'); 
+      $('apiStatus').textContent = API_KEYS.length + ' clé(s) restaurée(s)'; 
+      $('apiStatus').className = 'status ok'; 
+      $('modeTag').textContent = 'LIVE (' + API_KEYS.length + ')'; 
+      $('modeTag').className = 'live'; 
+    } 
+  } 
+  if(localStorage.getItem('sf_session')) { 
+    try { 
+      const u = JSON.parse(localStorage.getItem('sf_session')); 
+      $('loginBox').classList.add('hidden'); 
+      $('main').classList.remove('hidden'); 
+      $('logoutBtn').classList.remove('hidden'); 
+      PROJECT = await LocalAPI.getProject(); 
+      if(PROJECT) { 
+        $('projectName').value = PROJECT.name||''; 
+        $('projectPitch').value = PROJECT.pitch||''; 
+        if(PROJECT.global_style) { 
+          GLOBAL_STYLE_PROMPT = PROJECT.global_style; 
+          $('styleStatus').textContent = "Style actif : " + GLOBAL_STYLE_PROMPT; 
+          $('styleStatus').className = "status ok"; 
+        } 
+      } 
+      SHOTS = await LocalAPI.getShots(); 
+      await loadCustomReferences(); 
+    } catch(e) { 
+      console.warn(e); 
+    } 
+  } 
+  checkPuter(); 
+}
+init();
+</script>
+</body>
+</html>
