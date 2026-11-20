@@ -1153,13 +1153,142 @@ $('exportProjectBtn').onclick = async () => {
     references: await LocalAPI.getReferences()
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  downloadBlob(blob, `projet_${(PROJECT && PROJECT.name) ? PROJECT.name.replace(/\s+/g, '_') : 'sans_nom'}.json`);
+};
+
+// --- TÉLÉCHARGEMENT ---
+// Le lien doit être dans la page et l'URL gardée quelques secondes,
+// sinon Safari/Firefox peuvent annuler le téléchargement.
+function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
-  a.download = `projet_${(PROJECT && PROJECT.name) ? PROJECT.name.replace(/\s+/g, '_') : 'sans_nom'}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-};
+  a.href = url; a.download = filename; a.style.display = 'none';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+// --- EXPORT ZIP (sans bibliothèque) ---
+// Format ZIP "stocké" (sans compression) : images et vidéos sont déjà compressées,
+// recompresser ne ferait gagner presque rien et ralentirait le navigateur.
+const CRC_TABLE = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8) { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC_TABLE[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+
+function makeZip(files) { // files : [{ name, data: Uint8Array }]
+  const enc = new TextEncoder(), parts = [], central = [];
+  const d = new Date();
+  const dosTime = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
+  const dosDate = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+  let offset = 0;
+  for (const f of files) {
+    const name = enc.encode(f.name), size = f.data.length, crc = crc32(f.data);
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); // 0x0800 = noms en UTF-8 (accents)
+    lh.setUint16(8, 0, true); lh.setUint16(10, dosTime, true); lh.setUint16(12, dosDate, true);
+    lh.setUint32(14, crc, true); lh.setUint32(18, size, true); lh.setUint32(22, size, true);
+    lh.setUint16(26, name.length, true); lh.setUint16(28, 0, true);
+    parts.push(lh.buffer, name, f.data);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true);
+    ch.setUint16(10, 0, true); ch.setUint16(12, dosTime, true); ch.setUint16(14, dosDate, true);
+    ch.setUint32(16, crc, true); ch.setUint32(20, size, true); ch.setUint32(24, size, true);
+    ch.setUint16(28, name.length, true); ch.setUint32(42, offset, true);
+    central.push(ch.buffer, name);
+    offset += 30 + name.length + size;
+  }
+  const cdSize = central.reduce((a, b) => a + b.byteLength, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+  end.setUint32(12, cdSize, true); end.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, end.buffer], { type: 'application/zip' });
+}
+
+const slug = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w.-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 60);
+const oneLine = s => String(s || '').replace(/\s*\n+\s*/g, ' ').trim();
+
+function extFrom(mime, url, fallback) {
+  const m = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif', 'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov' }[(mime || '').split(';')[0]];
+  if (m) return m;
+  const u = String(url || '').split('?')[0].match(/\.([a-z0-9]{2,4})$/i);
+  return u ? u[1].toLowerCase() : fallback;
+}
+
+async function fetchBytes(url) {
+  const r = await fetch(url); // marche aussi pour les images locales (data:...)
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const blob = await r.blob();
+  return { data: new Uint8Array(await blob.arrayBuffer()), mime: blob.type };
+}
+
+// storyboard.md au format que l'onglet "Import .md" sait relire
+function storyboardToMd() {
+  // Pas de titre "# ..." en tête : l'import le prendrait pour un plan
+  return SHOTS.map((s, i) => [
+    `## ${oneLine(s.ident) || 'P' + (i + 1)} - ${oneLine(s.title) || 'Plan'}`,
+    `description: ${oneLine(s.description)}`,
+    `script: ${oneLine(s.script)}`,
+    `image prompt: ${oneLine(s.image_prompt)}`,
+    `animation prompt: ${oneLine(s.anim_prompt)}`,
+    `durée: ${s.duration || 5}`
+  ].join('\n')).join('\n\n') + '\n';
+}
+
+async function exportZip() {
+  if (!SHOTS.length) return toast('Storyboard vide : rien à exporter', 'warn');
+  const btn = $('exportZipBtn'), st = $('exportStatus');
+  const base = slug($('exportZipName').value) || slug(PROJECT && PROJECT.name) || 'studio-films';
+  const setSt = (txt, cls = '') => { st.classList.remove('hidden'); st.className = 'status ' + cls; st.textContent = txt; };
+  btn.disabled = true;
+  const files = [], failed = [], missingVid = new Set(), enc = new TextEncoder();
+  const pad = n => String(n).padStart(2, '0');
+  try {
+    let i = 0;
+    for (const s of SHOTS) {
+      i++;
+      const prefix = `${pad(i)}_${slug(s.ident) || 'P' + i}`;
+      for (let j = 0; j < (s.images || []).length; j++) {
+        setSt(`⏳ Plan ${i}/${SHOTS.length} · image ${j + 1}…`);
+        const img = s.images[j];
+        const role = j === startIndex(s) ? 'debut' : (s.kf_end === j ? 'fin' : 'var' + (j + 1));
+        try {
+          const { data, mime } = await fetchBytes(img.url);
+          files.push({ name: `${base}/images/${prefix}_${role}.${extFrom(mime, img.url, 'png')}`, data });
+        } catch (e) { failed.push(`${prefix} image ${j + 1} : ${img.url.startsWith('data:') ? '(image locale illisible)' : img.url}`); }
+      }
+      if (s.video_url) {
+        setSt(`⏳ Plan ${i}/${SHOTS.length} · vidéo…`);
+        try {
+          const { data, mime } = await fetchBytes(s.video_url);
+          files.push({ name: `${base}/videos/${prefix}.${extFrom(mime, s.video_url, 'mp4')}`, data });
+        } catch (e) { failed.push(`${prefix} vidéo : ${s.video_url}`); missingVid.add(s.id); }
+      }
+    }
+
+    // Feuille de montage : ordre, durées et voix off pour caler le montage
+    let t = 0;
+    const montage = SHOTS.map((s, k) => {
+      const dur = parseFloat(s.duration) || 5, line = `${pad(k + 1)}  [${t.toFixed(1)}s → ${(t + dur).toFixed(1)}s]  ${oneLine(s.ident)} - ${oneLine(s.title)}\n    Vidéo : ${missingVid.has(s.id) ? 'à télécharger à la main (voir A_TELECHARGER_A_LA_MAIN.txt)' : s.video_url ? 'videos/' + pad(k + 1) + '_' + (slug(s.ident) || 'P' + (k + 1)) + '.' + extFrom('', s.video_url, 'mp4') : '(pas encore générée)'}\n    Voix off : ${oneLine(s.script) || '—'}`;
+      t += dur; return line;
+    }).join('\n\n');
+    files.push({ name: `${base}/montage.txt`, data: enc.encode(`${oneLine(PROJECT && PROJECT.name) || base} — durée totale ≈ ${t.toFixed(1)} s\n\n${montage}\n`) });
+    files.push({ name: `${base}/storyboard.md`, data: enc.encode(storyboardToMd()) });
+    // Sauvegarde complète, réimportable via "Importer un projet"
+    files.push({ name: `${base}/projet.json`, data: enc.encode(JSON.stringify({ project: PROJECT, shots: SHOTS, references: await LocalAPI.getReferences() }, null, 2)) });
+    if (failed.length) files.push({ name: `${base}/A_TELECHARGER_A_LA_MAIN.txt`, data: enc.encode(
+      "Ces fichiers n'ont pas pu être récupérés par le navigateur (serveur qui bloque l'accès, ou lien expiré).\nOuvrez chaque lien et enregistrez-le à la main :\n\n" + failed.join('\n') + '\n') });
+
+    const total = files.reduce((a, f) => a + f.data.length, 0);
+    if (total > 3.9e9) throw new Error('Projet trop lourd pour un ZIP (> 4 Go)');
+    setSt('⏳ Création du ZIP…');
+    downloadBlob(makeZip(files), base + '.zip');
+    const mb = (total / 1048576).toFixed(1);
+    if (failed.length) setSt(`⚠️ ZIP téléchargé (${mb} Mo), mais ${failed.length} fichier(s) manquant(s) : la liste est dans A_TELECHARGER_A_LA_MAIN.txt.`, 'err');
+    else setSt(`✅ ZIP téléchargé (${mb} Mo) : images, vidéos, montage.txt, storyboard.md et projet.json.`, 'ok');
+  } catch (e) {
+    setSt('❌ ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+  }
+}
 
 $('importProjectBtn').onclick = () => {
   const input = document.createElement('input');
@@ -1486,6 +1615,7 @@ $('apiHead').onclick = () => $('apiBody').classList.toggle('open');
 $('generateImagesBtn').onclick = generateAllImagesBatch;
 $('generateVideosBtn').onclick = generateAllVideosBatch;
 $('generateVoicesBtn').onclick = generateAllVoicesBatch;
+$('exportZipBtn').onclick = exportZip;
 $('testVoiceBtn').onclick = testVoice;
 $('analyzeBtn').onclick = analyzeStoryboard;
 $('extractStyleBtn').onclick = extractStyle;
