@@ -106,6 +106,9 @@ input:focus,textarea:focus,select:focus{border-color:var(--gold);background:#fff
 .kf-prompt label{font:700 11px var(--mono);color:#b84a17;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
 .kf-prompt textarea{min-height:64px;font:500 12px var(--mono);padding:.4rem;border-color:var(--orange)}
 .kf-hint{font:500 11px var(--mono);color:var(--ink2);text-align:left;margin:.3rem 0}
+.kf-type{font:700 11px var(--mono);padding:1px 6px;border-radius:99px;white-space:nowrap;background:#e8eef4;color:var(--ink)}
+.kf-type.clip{background:#fde9d9;color:#8a3510}
+.kf-type.montage{background:#ece6f5;color:#4b3a78}
 .kf-hint.warn{color:#9a4508}
 </style>
 </head>
@@ -185,6 +188,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gold);background:#fff
       <div style="border:2px dashed var(--line);padding:2rem;text-align:center;border-radius:12px;background:#f7f9fc">
         <input type="file" id="mdInput" accept=".md,.txt" style="border:none;background:transparent">
       </div>
+      <p class="kf-hint" style="margin-top:.6rem">Accepte : le <b>storyboard</b> (plans en gras « P01 · 0:00–0:06 · 6 s · … » et tableau des plans), puis le fichier des <b>prompts Flow</b> pour ajouter les animations, ou l'ancien format « ## P1 - Titre ». Réimporter une nouvelle version met les plans à jour sans perdre images ni vidéos.</p>
       <div id="mdPreview" class="hidden" style="margin-top:1rem">
         <div class="status" id="mdStatus"></div>
         <div id="mdShotsPreview" style="margin-top:.5rem;max-height:200px;overflow-y:auto"></div>
@@ -264,6 +268,10 @@ input:focus,textarea:focus,select:focus{border-color:var(--gold);background:#fff
         <div><label class="lab">Concurrence</label><input type="number" id="vidConcurrency" value="1" min="1" max="5"></div>
         <div><label class="lab">Durée par défaut (s, 4 à 12)</label><input type="number" id="vidSecondsDefault" value="5" min="4" max="12"></div>
       </div>
+      <label style="display:flex;gap:.6rem;align-items:center;margin-top:.8rem;font:500 13px var(--sans);cursor:pointer">
+        <input type="checkbox" id="vidOnlyClips" checked style="width:auto;min-height:auto">
+        Seulement les plans marqués « clip » dans le storyboard (les plans « fixe » et « montage » sont faits au montage)
+      </label>
       <button class="btn-mega" id="generateVideosBtn">🎞️ Générer toutes les vidéos manquantes</button>
       <div id="genVidSteps" class="hidden" style="margin-top:1rem"></div>
     </div>
@@ -466,7 +474,7 @@ $('pushToGithubBtn').onclick = async () => {
         // Nouveaux champs (ignorés par l'ancien script, à lire pour le mode début → fin) :
         first_frame: kf.start,
         last_frame: kf.end,
-        seconds: clampSeconds(s.duration),
+        seconds: clampSeconds(s.clip_seconds || s.duration),
         video_prompt: buildVideoPrompt(s, !!kf.end),
         // Projet d'origine : « Récupérer les vidéos » refuse celles d'un autre projet
         project_uid: uid,
@@ -696,6 +704,154 @@ function parseMd(text) {
   }
   if (currentShot) shots.push(currentShot);
   return shots;
+}
+
+// =====================================================================
+// IMPORT FORMAT « SCÉNARIO DÉCOUPÉ » (storyboards ET SI…)
+//   **P01 · 0:00–0:06 · 6 s · Plan général**      ← en-tête de plan en gras
+//   texte du plan, répliques **Marc :** « … »
+//   *Animation : clip P01, sinon une poussée lente sur l'image.*
+// + le tableau « | Plan | Temps | Durée | Image | Animation | Contenu | »
+// L'ancien format (## P1 - Titre / description: …) reste lu par parseMd.
+// =====================================================================
+const SHOT_HEAD_RE = /^\s*(?:#{1,4}\s*)?\*\*\s*(P\d{1,3}[a-z]?)\s*·\s*(.+?)\s*\*\*\s*$/i;
+const isScenarioMd = t => t.split('\n').some(l => SHOT_HEAD_RE.test(l));
+const isFlowMd = t => /Frames to Video/i.test(t) && /```/.test(t);
+const cleanMd = s => String(s || '').replace(/`([^`]*)`/g, '$1').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1').replace(/\s+/g, ' ').trim();
+
+// clip = le plan a son propre clip ; montage = carton, logo, ou assemblage d'autres clips ; fixe = image + mouvement de caméra
+function animTypeOf(ident, note) {
+  const n = (note || '').toLowerCase(), id = ident.toLowerCase();
+  const refs = [...n.matchAll(/\bclips?\s+(p\d{1,3}[a-z]?)/g)].map(m => m[1]);
+  if (refs.includes(id)) return 'clip';
+  if (refs.length || /montage|carton|logo|souvenir/.test(n)) return 'montage';
+  return 'fixe';
+}
+
+// Traduit la note « Fixe, poussée lente » en consigne de mouvement pour le modèle vidéo
+function cameraPromptFromNote(note) {
+  const n = (note || '').toLowerCase();
+  const cam = /pouss[ée]e/.test(n) ? 'Very slow, steady push-in toward the characters.'
+            : /recul/.test(n) ? 'Very slow, steady pull-back.'
+            : 'The camera stays completely still.';
+  const life = /respiration/.test(n) ? 'Only subtle breathing and tiny natural movements of the characters.'
+             : /impact|secousse/.test(n) ? 'One small, short camera jolt at the moment of the push, then stillness.'
+             : 'The characters hold their pose with only subtle, natural movements.';
+  return `${cam} ${life} One continuous take with no cuts. Nobody enters or leaves the frame.`;
+}
+
+function parseScenarioMd(text) {
+  const lines = text.replace(/\r/g, '').split('\n');
+
+  // 1. Le tableau des plans (durée, image(s), animation, contenu)
+  const table = {}, tableOrder = [];
+  let cols = null;
+  for (const l of lines) {
+    if (!/^\s*\|/.test(l)) { cols = null; continue; }
+    const cells = l.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim());
+    if (cells.every(c => /^:?-{2,}:?$/.test(c))) continue;
+    if (!cols && /^plan$/i.test(cleanMd(cells[0]))) { cols = cells.map(c => cleanMd(c).toLowerCase()); continue; }
+    const id = cleanMd(cells[0]);
+    if (!cols || !/^P\d{1,3}[a-z]?$/i.test(id)) continue;
+    const get = name => { const i = cols.findIndex(c => c.startsWith(name)); return i >= 0 ? (cells[i] || '') : ''; };
+    const imgCell = get('image');
+    table[id.toLowerCase()] = {
+      ident: id, time: cleanMd(get('temps')),
+      duration: parseFloat(cleanMd(get('dur')).replace(',', '.')) || 0,
+      image_files: imgCell.match(/[\w.-]+\.(?:png|jpe?g|webp)/gi) || [],
+      endFromNext: /→/.test(imgCell),
+      anim: cleanMd(get('anim')), contenu: cleanMd(get('contenu'))
+    };
+    tableOrder.push(id.toLowerCase());
+  }
+
+  // 2. Les blocs de plans du scénario
+  const blocks = {}, blockOrder = [];
+  let cur = null, seq = '';
+  const flush = () => { if (cur) { blocks[cur.ident.toLowerCase()] = cur; blockOrder.push(cur.ident.toLowerCase()); cur = null; } };
+  for (const raw of lines) {
+    const m = raw.match(SHOT_HEAD_RE);
+    if (m) { flush(); cur = { ident: m[1], head: m[2], body: [], seq }; continue; }
+    const h = raw.match(/^\s*(#{1,6})\s+(.*)$/);
+    if (h) { flush(); seq = h[1].length >= 3 ? cleanMd(h[2]) : ''; continue; }
+    if (cur) cur.body.push(raw);
+  }
+  flush();
+
+  // 3. Fusion tableau + scénario, dans l'ordre du tableau (puis les plans absents du tableau)
+  const keys = [...tableOrder, ...blockOrder.filter(k => !table[k])];
+  const shots = keys.map(k => {
+    const t = table[k] || {}, b = blocks[k] || { ident: t.ident, head: '', body: [], seq: '' };
+    let time = t.time || '', dur = 0; const type = [];
+    for (const seg of b.head.split(/\s*·\s*/).filter(Boolean)) {
+      const d = seg.match(/^(\d+(?:[.,]\d+)?)\s*s$/i);
+      if (d) dur = parseFloat(d[1].replace(',', '.'));
+      else if (/^\d+:\d{2}/.test(seg)) time = seg;
+      else type.push(cleanMd(seg));
+    }
+    const notes = [], textLines = [];
+    for (const l of b.body) {
+      const a = l.match(/^\s*\*\s*Animation\s*:\s*(.+?)\s*\*\s*$/i);
+      if (a) notes.push(cleanMd(a[1])); else textLines.push(l);
+    }
+    // Répliques : **Marc :** « … » (plusieurs « … » / « … » possibles)
+    const body = b.body.join('\n');
+    const script = [...body.matchAll(/\*\*([^*]+?)\s*:\s*\*\*\s*((?:«[^»]*»[\s\/]*)+)/g)]
+      .map(m => `${cleanMd(m[1])} : ${(m[2].match(/«[^»]*»/g) || []).map(q => q.replace(/[«»]/g, '').trim()).join(' / ')}`).join('\n');
+    const desc = textLines.join('\n').split(/\n\s*\n/).map(p => p.split('\n').map(x => /^\s*-\s/.test(x) ? '\n' + cleanMd(x.replace(/^\s*-\s*/, '- ')) : cleanMd(x)).join(' ').replace(/\s*\n/g, '\n').trim()).filter(Boolean).join('\n');
+    const typeTxt = type.join(', ');
+    const norm = x => cleanMd(x).toLowerCase().replace(/[.\s]+$/, '');
+    const anim_note = [t.anim, ...notes.filter(n => norm(n) !== norm(t.anim || ''))].filter(Boolean).join(' — ');
+    const anim_type = animTypeOf(b.ident || t.ident, anim_note);
+    const shot = {
+      ident: b.ident || t.ident,
+      title: t.contenu || typeTxt || 'Plan',
+      description: [typeTxt && typeTxt + '.', desc || t.contenu].filter(Boolean).join(' '),
+      script, image_prompt: '',
+      anim_prompt: anim_type === 'fixe' ? cameraPromptFromNote(anim_note) : '',
+      anim_auto: anim_type === 'fixe',
+      duration: dur || t.duration || 5,
+      images: [], image_files: t.image_files || [],
+      anim_note, anim_type, time, sequence: b.seq || ''
+    };
+    if (t.endFromNext) shot.kf_end = 'next'; // « P08.png → P09.png » : fin = image du plan suivant
+    return shot;
+  });
+  return shots.filter(s => s.ident);
+}
+
+// =====================================================================
+// IMPORT DES PROMPTS GOOGLE FLOW (fichier « …-prompts-Flow.md »)
+//   ## 5. P08 → P09 — Julien arrive → `P08-clip_v01.mp4`
+//   - **Mode :** Frames to Video, première et dernière images.
+//   - **Durée :** 4 s.   - **Entrées :** `P08.png` (première image), `P09.png` (dernière image).
+//   ```text  …prompt…  ```
+// =====================================================================
+function parseFlowMd(text) {
+  text = text.replace(/\r/g, '');
+  const neg = (text.match(/n[ée]gatif[^\n]*\n+```[a-z]*\n([\s\S]*?)```/i) || [])[1] || '';
+  const clips = [];
+  for (const part of text.split(/^##\s+(?=\d+\.\s)/m).slice(1)) {
+    const head = part.split('\n')[0];
+    const ident = (head.match(/P\d{1,3}[a-z]?/i) || [])[0];
+    const pm = part.match(/```[a-z]*\n([\s\S]*?)```/);
+    if (!ident || !pm) continue;
+    const before = part.slice(0, pm.index); // les notes du clip sont avant le prompt
+    const field = name => { const m = before.match(new RegExp('\\*\\*\\s*' + name + '[^*]*:\\s*\\*\\*\\s*(.+)', 'i')); return m ? cleanMd(m[1]) : ''; };
+    const mode = field('Mode'), entries = field('Entr');
+    const endIdent = (head.match(/^\d+\.\s*P\d{1,3}[a-z]?\s*→\s*(P\d{1,3}[a-z]?)/i) || [])[1] || '';
+    clips.push({
+      ident, endIdent,
+      wantsEnd: /derni[eè]re/i.test(mode) || /derni[eè]re image/i.test(entries),
+      endFile: (entries.match(/([\w.-]+\.(?:png|jpe?g|webp))\s*\(derni/i) || [])[1] || '',
+      seconds: parseFloat(field('Dur')) || 0,
+      prompt: pm[1].trim(),
+      clipName: (head.match(/`([^`]+\.mp4)`/) || [])[1] || '',
+      title: cleanMd(head.replace(/^\d+\.\s*/, '').replace(/→\s*`[^`]+`\s*$/, '')),
+      notes: before.split('\n').filter(l => /^\s*-\s*\*\*/.test(l) && !/\*\*\s*(Mode|Dur|Entr)/i.test(l)).map(l => cleanMd(l.replace(/^\s*-\s*/, ''))).join(' ')
+    });
+  }
+  return { clips, negative: neg.trim() };
 }
 
 const LocalAPI = (() => {
@@ -930,7 +1086,7 @@ function buildVideoPrompt(s, hasEnd) {
 
 async function generateShotVideo(s, onProgress) {
   const kf = getKeyframes(s);
-  return LocalAPI.genVideo(buildVideoPrompt(s, !!kf.end), kf.start, onProgress, { lastFrame: kf.end, seconds: clampSeconds(s.duration) });
+  return LocalAPI.genVideo(buildVideoPrompt(s, !!kf.end), kf.start, onProgress, { lastFrame: kf.end, seconds: clampSeconds(s.clip_seconds || s.duration) });
 }
 
 function progressLabel(status, elapsed, progress) {
@@ -979,7 +1135,7 @@ window.writeTransitionPrompt = async (id, btn) => {
     const intent = [s.anim_prompt, s.description].filter(Boolean).join(' / ') || 'aucune, propose un mouvement cohérent';
     content.push({ type: 'text', text:
       `Tu es directeur de la photographie. ${kf.end ? "Image 1 = premier plan exact de la vidéo, image 2 = dernier plan exact." : "L'image = premier plan exact de la vidéo."} ` +
-      `Durée : ${clampSeconds(s.duration)} secondes. Intention du réalisateur : ${intent}.\n` +
+      `Durée : ${clampSeconds(s.clip_seconds || s.duration)} secondes. Intention du réalisateur : ${intent}.\n` +
       `Écris un prompt vidéo EN ANGLAIS (50 à 90 mots), dans cet ordre : sujet et décor ; action et évolution ${kf.end ? "jusqu'à la composition de l'image 2" : ''} ; mouvement de caméra précis (push-in, pan, tracking…) ; lumière et ambiance ; éléments qui doivent rester identiques. ` +
       `Pas de liste, pas de guillemets, réponds uniquement par le prompt.` });
     const res = await LocalAPI.agnesCall('/chat/completions', { model: AGNES_TXT_MODEL, messages: [{ role: 'user', content }] }, 90);
@@ -1018,7 +1174,7 @@ function renderIndividualVideos() {
     return `
     <div class="card drop-zone" style="padding:.6rem; text-align:center;">
       <div style="font-weight:bold; margin-bottom:.5rem; display:flex; justify-content:space-between; align-items:center; gap:.4rem;">
-        <span style="font-size:.85rem;color:var(--navy);text-align:left">${esc(s.ident)} - ${esc((s.title || '').substring(0, 28))}</span>
+        <span style="font-size:.85rem;color:var(--navy);text-align:left">${esc(s.ident)} - ${esc((s.title || '').substring(0, 28))}${s.anim_type ? ` <span class="kf-type ${s.anim_type}">${ANIM_LABEL[s.anim_type]}</span>` : ''}</span>
         ${s.video_url ? '<span class="badge" style="background:var(--green);color:#fff;padding:2px 6px;border-radius:10px;font-size:9px;white-space:nowrap">✅ Fait</span>' : ''}
       </div>
 
@@ -1033,9 +1189,11 @@ function renderIndividualVideos() {
       <div class="kf-row">
         <div><label>Début</label><select onchange="setKeyframe(${s.id}, 'start', this.value)">${startOpts}</select></div>
         <div><label>Fin</label><select onchange="setKeyframe(${s.id}, 'end', this.value)">${endOpts}</select></div>
-        <div><label>Durée</label><input type="number" min="4" max="12" value="${clampSeconds(s.duration)}" onchange="updateShotField(${s.id}, 'duration', this.value); this.value = clampSeconds(this.value)"></div>
+        <div><label>Durée clip</label><input type="number" min="4" max="12" value="${clampSeconds(s.clip_seconds || s.duration)}" title="Durée de la vidéo générée (le plan au montage garde sa durée du storyboard)" onchange="updateShotField(${s.id}, 'clip_seconds', this.value); this.value = clampSeconds(this.value)"></div>
       </div>
       ${kf.endWarn ? `<div class="kf-hint warn">${esc(kf.endWarn)}</div>` : ''}
+      ${s.anim_note ? `<div class="kf-hint"><b>Storyboard :</b> ${esc(s.anim_note)}</div>` : ''}
+      ${s.clip_notes ? `<div class="kf-hint"><b>Flow :</b> ${esc(s.clip_notes)}</div>` : ''}
       ${localWarn}
 
       <div class="kf-prompt">
@@ -1100,7 +1258,7 @@ function renderVidGrid() {
 }
 
 window.moveShot = async (id, direction) => { const index = SHOTS.findIndex(s => s.id === id); if (index === -1) return; const targetIndex = index + direction; if (targetIndex < 0 || targetIndex >= SHOTS.length) return; const temp = SHOTS[index]; SHOTS[index] = SHOTS[targetIndex]; SHOTS[targetIndex] = temp; for (let i = 0; i < SHOTS.length; i++) { SHOTS[i].order = i + 1; await LocalAPI.saveShot(SHOTS[i]); } renderShots(); };
-window.updateShotField = async (id, field, val) => { const s = SHOTS.find(x => x.id === id); if(s) { s[field] = (field === 'duration') ? parseFloat(val) : val.trim(); await LocalAPI.saveShot(s); } };
+window.updateShotField = async (id, field, val) => { const s = SHOTS.find(x => x.id === id); if(s) { s[field] = (field === 'duration' || field === 'clip_seconds') ? parseFloat(val) : val.trim(); if (field === 'anim_prompt') s.anim_auto = false; /* prompt retouché : un réimport ne l'écrasera plus */ await LocalAPI.saveShot(s); } };
 window.removeImage = async (shotId, imgIndex) => { const s = SHOTS.find(x => x.id === shotId); if (!s) return; if (confirm('Supprimer cette image ?')) { s.images.splice(imgIndex, 1);
   // Recaler les images clés : sinon "Fin = image 3" pointerait sur une autre image après suppression
   const shift = k => Number.isInteger(k) ? (k === imgIndex ? null : (k > imgIndex ? k - 1 : k)) : k;
@@ -1166,27 +1324,117 @@ function renderImgGrid() {
   }).join('');
 }
 
+// Trois sortes de fichiers .md acceptées :
+//   - storyboard « scénario découpé » (en-têtes **P01 · … · 6 s · …**) → parseScenarioMd
+//   - prompts Google Flow (sections « ## 1. P02 — … → `P02-clip_v01.mp4` ») → parseFlowMd
+//   - ancien format (## P1 - Titre / description: …) → parseMd (inchangé)
+let TEMP_KIND = 'shots', TEMP_FLOW = null;
+const sameIdent = (a, b) => !!a && !!b && a.toLowerCase() === b.toLowerCase();
+const ANIM_LABEL = { clip: '🎬 clip', fixe: '🖼️ fixe', montage: '✂️ montage' };
+
 $('mdInput').onchange = async (e) => {
   const file = e.target.files[0];
   if (!file) return;
   const text = await file.text();
-  TEMP_SHOTS = parseMd(text);
+  TEMP_SHOTS = []; TEMP_FLOW = null;
+
+  if (isFlowMd(text) && !isScenarioMd(text)) {
+    TEMP_KIND = 'flow';
+    TEMP_FLOW = parseFlowMd(text);
+    if (!TEMP_FLOW.clips.length) { $('mdPreview').classList.add('hidden'); return toast('Aucun prompt de clip trouvé dans le fichier', 'warn'); }
+    const found = TEMP_FLOW.clips.filter(c => SHOTS.some(s => sameIdent(s.ident, c.ident))).length;
+    $('mdStatus').textContent = `${TEMP_FLOW.clips.length} animations trouvées · ${found} correspondent à un plan du storyboard.`
+      + (TEMP_FLOW.negative ? " Le prompt négatif n'est pas transmis : l'API vidéo d'Agnes n'a pas ce réglage." : '');
+    $('mdStatus').className = 'status ' + (found === TEMP_FLOW.clips.length ? 'ok' : 'err');
+    $('mdShotsPreview').innerHTML = TEMP_FLOW.clips.map(c => {
+      const ok = SHOTS.some(s => sameIdent(s.ident, c.ident));
+      const frames = c.wantsEnd ? `début → fin (${esc(c.endIdent || c.endFile || 'plan suivant')})` : 'image de début seule';
+      return `<div class="step ${ok ? '' : 'error'}">${ok ? '✅' : '❌'} <b>${esc(c.ident)}</b> · ${c.seconds ? c.seconds + ' s · ' : ''}${frames} · ${esc(c.title.replace(/^P\S+(\s*→\s*P\S+)?\s*—\s*/, ''))}${ok ? '' : ' — <b>aucun plan ' + esc(c.ident) + ' : importez d\'abord le storyboard</b>'}</div>`;
+    }).join('');
+    $('confirmImportBtn').textContent = `✓ Ajouter les ${found} animations au storyboard`;
+    $('confirmImportBtn').disabled = !found;
+    $('mdPreview').classList.remove('hidden');
+    return;
+  }
+
+  TEMP_KIND = 'shots';
+  TEMP_SHOTS = isScenarioMd(text) ? parseScenarioMd(text) : parseMd(text);
   if (!TEMP_SHOTS.length) {
     $('mdPreview').classList.add('hidden');
     return toast('Aucun plan trouvé dans le fichier', 'warn');
   }
-  $('mdStatus').textContent = `${TEMP_SHOTS.length} plans détectés.`;
+  const upd = TEMP_SHOTS.filter(t => SHOTS.some(s => sameIdent(s.ident, t.ident))).length;
+  const total = TEMP_SHOTS.reduce((a, s) => a + (parseFloat(s.duration) || 0), 0);
+  const count = k => TEMP_SHOTS.filter(s => s.anim_type === k).length;
+  const types = TEMP_SHOTS.some(s => s.anim_type) ? ` · ${count('clip')} clips, ${count('fixe')} fixes, ${count('montage')} montage` : '';
+  $('mdStatus').textContent = `${TEMP_SHOTS.length} plans détectés · ${Math.floor(total / 60)} min ${String(Math.round(total % 60)).padStart(2, '0')}${types}`
+    + (upd ? ` · ${upd} existent déjà et seront mis à jour (images et vidéos conservées)` : '');
   $('mdStatus').className = 'status ok';
-  $('mdShotsPreview').innerHTML = TEMP_SHOTS.map(s => `<div class="step"><b>${esc(s.ident)}</b> - ${esc(s.title)}</div>`).join('');
+  $('mdShotsPreview').innerHTML = TEMP_SHOTS.map(s => {
+    const exists = SHOTS.some(x => sameIdent(x.ident, s.ident));
+    return `<div class="step"><b>${esc(s.ident)}</b> · ${esc(String(s.duration))} s${s.anim_type ? ' · ' + ANIM_LABEL[s.anim_type] : ''} · ${esc(s.title)}${exists ? ' <i>(mise à jour)</i>' : ''}</div>`;
+  }).join('');
+  $('confirmImportBtn').textContent = "✓ Confirmer l'import dans le storyboard";
+  $('confirmImportBtn').disabled = false;
   $('mdPreview').classList.remove('hidden');
 };
 
+// Ajoute les prompts Flow aux plans existants (même identifiant)
+async function applyFlowClips(flow) {
+  let applied = 0;
+  for (const c of flow.clips) {
+    const s = SHOTS.find(x => sameIdent(x.ident, c.ident));
+    if (!s) continue;
+    s.anim_prompt = c.prompt; s.anim_auto = false; s.anim_type = 'clip';
+    if (c.seconds) s.clip_seconds = c.seconds;      // durée du clip ≠ durée du plan au montage
+    if (c.clipName) s.clip_name = c.clipName;
+    s.clip_notes = c.notes || '';
+    if (c.wantsEnd) {
+      // Fin = l'image de ce nom dans le plan si elle y est, sinon l'image de début du plan suivant
+      const own = c.endFile ? (s.images || []).findIndex(im => im.name === c.endFile) : -1;
+      s.kf_end = (own >= 0 && own !== startIndex(s)) ? own : 'next';
+    } else {
+      s.kf_end = null; // « première image seule »
+    }
+    await LocalAPI.saveShot(s);
+    applied++;
+  }
+  return applied;
+}
+
 $('confirmImportBtn').onclick = async () => {
+  if (TEMP_KIND === 'flow') {
+    if (!TEMP_FLOW) return;
+    const n = await applyFlowClips(TEMP_FLOW);
+    TEMP_FLOW = null;
+    $('mdPreview').classList.add('hidden'); $('mdInput').value = '';
+    SHOTS = await LocalAPI.getShots();
+    renderShots(); renderIndividualVideos();
+    switchTab('genvid');
+    return toast(`${n} animation(s) ajoutée(s) aux plans`, 'ok');
+  }
   if (!TEMP_SHOTS.length) return;
   let order = SHOTS.length > 0 ? Math.max(...SHOTS.map(s => s.order)) + 1 : 1;
+  let added = 0, updated = 0;
   for (const s of TEMP_SHOTS) {
-    s.order = order++;
-    await LocalAPI.saveShot(s);
+    const ex = s.ident ? SHOTS.find(x => sameIdent(x.ident, s.ident)) : null;
+    if (ex) {
+      // Plan déjà là (réimport d'une nouvelle version) : on met à jour le texte,
+      // on garde les images, la vidéo et les réglages début/fin déjà faits.
+      for (const k of ['title', 'description', 'script', 'duration', 'image_files', 'anim_note', 'anim_type', 'time', 'sequence']) {
+        if (s[k] !== undefined && s[k] !== '') ex[k] = s[k];
+      }
+      if (s.image_prompt) ex.image_prompt = s.image_prompt;
+      // Un prompt automatique ne remplace jamais un prompt écrit (Flow, IA ou à la main)
+      if (s.anim_prompt && (!s.anim_auto || !ex.anim_prompt || ex.anim_auto)) { ex.anim_prompt = s.anim_prompt; ex.anim_auto = !!s.anim_auto; }
+      if (s.kf_end !== undefined && ex.kf_end == null) ex.kf_end = s.kf_end;
+      await LocalAPI.saveShot(ex);
+      updated++;
+    } else {
+      s.order = order++;
+      await LocalAPI.saveShot(s);
+      added++;
+    }
   }
   SHOTS = await LocalAPI.getShots();
   TEMP_SHOTS = [];
@@ -1194,7 +1442,7 @@ $('confirmImportBtn').onclick = async () => {
   $('mdInput').value = '';
   renderShots();
   switchTab('storyboard');
-  toast('Plans importés avec succès', 'ok');
+  toast(updated ? `${added} plan(s) ajouté(s), ${updated} mis à jour` : 'Plans importés avec succès', 'ok');
 };
 
 $('addShotBtn').onclick = async () => {
@@ -1614,8 +1862,36 @@ $('uploadAllBtn').onclick = () => {
   input.accept = 'image/*';
   input.multiple = true;
   input.onchange = async (e) => {
-    const files = Array.from(e.target.files);
+    let files = Array.from(e.target.files);
     if (!files.length) return;
+
+    // 1. Rangement par nom : « P04.png » → P04, « P17_P18.png » → P17 et P18,
+    //    ou le fichier indiqué dans la colonne Image du storyboard.
+    const readUrl = f => new Promise(res => { const r = new FileReader(); r.onload = ev => res(ev.target.result); r.readAsDataURL(f); });
+    const targetsOf = name => {
+      const base = name.replace(/\.[^.]+$/, '').toLowerCase(), parts = base.split(/[_\s]+/);
+      return SHOTS.filter(s => (s.image_files && s.image_files.length)
+        ? s.image_files[0].toLowerCase() === name.toLowerCase()          // 1er fichier = image de début du plan
+        : !!s.ident && (base === s.ident.toLowerCase() || parts.includes(s.ident.toLowerCase())));
+    };
+    const leftovers = []; let byName = 0;
+    for (const file of files) {
+      const targets = targetsOf(file.name);
+      if (!targets.length) { leftovers.push(file); continue; }
+      const url = await readUrl(file);
+      for (const s of targets) {
+        if (!s.images) s.images = [];
+        const i = s.images.findIndex(im => im.name === file.name);
+        if (i >= 0) s.images[i] = { url, name: file.name }; else s.images.push({ url, name: file.name }); // réimport = remplacement
+        await LocalAPI.saveShot(s);
+      }
+      byName++;
+    }
+    files = leftovers;
+    if (byName) toast(`${byName} image(s) rangée(s) d'après leur nom`, 'ok');
+    if (!files.length) { renderImgGrid(); renderShots(); renderIndividualVideos(); return; }
+
+    // 2. Les autres : comportement d'origine (dans l'ordre, sur les plans sans image)
     let emptyShots = SHOTS.filter(s => !s.images || s.images.length === 0);
     if (emptyShots.length < files.length) emptyShots = SHOTS;
     
@@ -1684,8 +1960,8 @@ async function generateAllImagesBatch() {
 }
 
 async function generateAllVideosBatch() {
-  const conc = parseInt($('vidConcurrency').value)||1; const queue = SHOTS.filter(s=>s.images.length > 0 && !s.video_url);
-  if(!queue.length) { toast('Aucun plan avec image', 'warn'); return; }
+  const conc = parseInt($('vidConcurrency').value)||1; const onlyClips = $('vidOnlyClips') && $('vidOnlyClips').checked; const queue = SHOTS.filter(s=>s.images.length > 0 && !s.video_url && (!onlyClips || !s.anim_type || s.anim_type === 'clip')); // plans sans type (ancien format) : toujours générés
+  if(!queue.length) { toast(onlyClips ? 'Aucun plan « clip » avec image et sans vidéo (décochez l\'option pour inclure les plans fixes)' : 'Aucun plan avec image', 'warn'); return; }
   let cursor=0, done=0; $('genVidSteps').classList.remove('hidden'); $('genVidSteps').innerHTML = `<div class="step">Progression: <span id="progVid">0/${queue.length}</span></div>`;
   const rows = {}; queue.forEach((s, i) => { const row = document.createElement('div'); row.className = 'step'; row.innerHTML = `<span class="ico">⏳</span><b>${esc(s.ident)}</b> · En attente`; $('genVidSteps').appendChild(row); rows[i] = row; });
   async function worker() {
