@@ -88,21 +88,25 @@ input:focus,textarea:focus,select:focus{border-color:var(--gold);background:#fff
 .ref-card .rm { position:absolute; top:15px; right:15px; background:var(--red); color:#fff; border:none; border-radius:50%; width:20px; height:20px; cursor:pointer; display:grid; place-items:center;}
 
 /* Grille pour la génération individuelle */
-#vidIndividualGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; margin-top: 1rem; }
+#vidIndividualGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 1rem; margin-top: 1rem; }
 
-/* --- Image de fin (keyframe) --- */
-.frame-badge{position:absolute;bottom:2px;left:2px;background:var(--orange);color:#fff;font:700 8px var(--mono);padding:1px 4px;border-radius:4px;z-index:2}
-.frame-badge-start{position:absolute;bottom:2px;left:2px;background:var(--green);color:#fff;font:700 8px var(--mono);padding:1px 4px;border-radius:4px;z-index:2}
-.thumb{position:relative}
-.thumb .set-end{position:absolute;bottom:2px;right:2px;background:var(--navy);color:#fff;border:none;border-radius:50%;width:16px;height:16px;font-size:9px;cursor:pointer;display:grid;place-items:center;padding:0;z-index:2}
-.thumb .set-end:hover,.thumb .set-end.active{background:var(--orange)}
-.frames-preview{display:flex;gap:.4rem;margin:.5rem 0}
-.frames-preview .frame-slot{flex:1;text-align:center}
-.frames-preview .frame-slot img{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:6px;border:2px solid var(--line)}
-.frames-preview .frame-label{font:700 9px var(--mono);margin-bottom:3px;text-transform:uppercase}
-.frame-slot-start .frame-label{color:var(--green)}
-.frame-slot-end .frame-label{color:var(--orange)}
-.frame-slot-empty{background:#e8eef4;border:1px dashed var(--line);border-radius:6px;aspect-ratio:16/9;display:grid;place-items:center;font-size:9px;color:var(--ink3);padding:.3rem;text-align:center}
+/* Images clés (début → fin) */
+.kf-pair{display:grid;grid-template-columns:1fr auto 1fr;gap:.4rem;align-items:center;margin-bottom:.5rem}
+.kf-slot{position:relative}
+.kf-slot img,.kf-empty{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;border:1px solid var(--line);display:block}
+.kf-empty{display:grid;place-items:center;background:#e8eef4;border-style:dashed;color:var(--ink2);font:600 11px var(--mono);cursor:pointer;text-align:center;padding:.3rem}
+.kf-empty:hover{background:#fff;border-color:var(--gold);color:var(--navy)}
+.kf-tag{position:absolute;top:4px;left:4px;background:var(--navy);color:#fff;font:700 11px var(--mono);padding:1px 6px;border-radius:99px;text-transform:uppercase}
+.kf-tag.end{background:var(--orange)}
+.kf-arrow{font:800 1rem var(--mono);color:var(--ink3)}
+.kf-row{display:grid;grid-template-columns:1fr 1fr 70px;gap:.4rem;text-align:left}
+.kf-row label{font:700 11px var(--mono);color:var(--ink2);text-transform:uppercase;display:block;margin-bottom:2px}
+.kf-row select,.kf-row input{min-height:32px;padding:.25rem .4rem;font:500 12px var(--sans)}
+.kf-prompt{margin-top:.4rem;text-align:left}
+.kf-prompt label{font:700 11px var(--mono);color:#b84a17;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
+.kf-prompt textarea{min-height:64px;font:500 12px var(--mono);padding:.4rem;border-color:var(--orange)}
+.kf-hint{font:500 11px var(--mono);color:var(--ink2);text-align:left;margin:.3rem 0}
+.kf-hint.warn{color:#9a4508}
 </style>
 </head>
 <body>
@@ -232,7 +236,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gold);background:#fff
     <!-- SECTION : CHOISIR UNE VIDÉO À GÉNÉRER -->
     <div class="card" style="border: 2px solid var(--navy);">
       <div class="card-head"><b>🎯 Génération Individuelle (Choisir un plan)</b></div>
-      <p style="font-size:12px;color:var(--ink2);margin-bottom:1rem;">Cliquez sur le bouton sous l'image pour générer uniquement cette vidéo. Marquez une image avec 🏁 dans le storyboard pour définir une image de fin (keyframe).</p>
+      <p style="font-size:12px;color:var(--ink2);margin-bottom:1rem;">Choisissez l'image de <b>début</b> et, si vous voulez maîtriser la fin du plan, une image de <b>fin</b> : la vidéo fera la transition de l'une à l'autre. « Début du plan suivant » enchaîne les plans sans coupure visible.</p>
       <div id="vidIndividualGrid"></div>
     </div>
 
@@ -242,7 +246,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--gold);background:#fff
       <p class="hint-line" style="margin-bottom:1rem;color:var(--orange)">⚠️ L'API Agnes limite le nombre de vidéos simultanées. Gardez la concurrence à 1.</p>
       <div class="row">
         <div><label class="lab">Concurrence</label><input type="number" id="vidConcurrency" value="1" min="1" max="5"></div>
-        <div><label class="lab">Durée (s)</label><input type="number" id="vidSecondsDefault" value="5" min="1" max="12"></div>
+        <div><label class="lab">Durée par défaut (s, 4 à 12)</label><input type="number" id="vidSecondsDefault" value="5" min="4" max="12"></div>
       </div>
       <button class="btn-mega" id="generateVideosBtn">🎞️ Générer toutes les vidéos manquantes</button>
       <div id="genVidSteps" class="hidden" style="margin-top:1rem"></div>
@@ -317,14 +321,6 @@ let GLOBAL_STYLE_PROMPT = "";
 function toast(msg, type=''){ const t=$('toast'); t.textContent=msg; t.className='on '+type; setTimeout(()=>t.className=type, 3000); }
 function sanitizeKeys(keys) { const out=[]; (Array.isArray(keys)?keys:[]).forEach(k=>{ if(typeof k!=='string')return; k=k.replace(/[^\x00-\x7F]/g,"").trim(); if(k.length<20||!k.startsWith('sk-'))return; if(!out.includes(k))out.push(k); }); return out; }
 
-// Récupère les images de début et de fin d'un plan (fin = image marquée role:'end', hors images[0])
-function getShotFrames(s) {
-  if (!s || !s.images || !s.images.length) return { start: null, end: null };
-  const startImg = s.images[0];
-  const endImg = s.images.find((img, i) => i > 0 && img.role === 'end');
-  return { start: startImg.url, end: endImg ? endImg.url : null };
-}
-
 // --- NOUVEAU SYSTEME DE POOL DE CLES ET COOLDOWN ---
 function initKeyPool(keys) {
   KEY_POOL = keys.map((key, i) => ({ id: i, key, status: 'idle', cooldownUntil: 0 }));
@@ -353,6 +349,9 @@ async function callWithPool(fn, label='appel') {
       return r; 
     } catch (e) {
       lastErr = e;
+      // Erreur définitive (prompt refusé, 400, échec de rendu, timeout) : inutile de relancer,
+      // ça ne ferait que consommer le quota vidéo (500 s/jour).
+      if (e.noRetry) { k.status = 'idle'; throw e; }
       if (e.code === 429 || String(e.message).includes('429') || String(e.message).includes('queue_full')) {
         k.status = 'cooldown';
         k.cooldownUntil = Date.now() + 30000; // 30 secondes de pause
@@ -397,14 +396,21 @@ $('pushToGithubBtn').onclick = async () => {
       }
     }
     
-    const formattedShots = SHOTS.map(s => ({ 
-        ident: s.ident, 
-        title: s.title, 
-        anim_prompt: s.anim_prompt || s.script || s.description || "Cinematic motion", 
+    const formattedShots = SHOTS.map(s => {
+      const kf = getKeyframes(s);
+      return {
+        ident: s.ident,
+        title: s.title,
+        anim_prompt: s.anim_prompt || s.script || s.description || "Cinematic motion",
         images: s.images.map(img => ({ url: img.url })),
-        end_frame: (s.images.find((img, i) => i > 0 && img.role === 'end') || {}).url || null,
-        video_url: s.video_url || null 
-    }));
+        video_url: s.video_url || null,
+        // Nouveaux champs (ignorés par l'ancien script, à lire pour le mode début → fin) :
+        first_frame: kf.start,
+        last_frame: kf.end,
+        seconds: clampSeconds(s.duration),
+        video_prompt: buildVideoPrompt(s, !!kf.end)
+      };
+    });
     
     const jsonContent = JSON.stringify(formattedShots, null, 2);
     let sha = null;
@@ -609,7 +615,8 @@ function parseMd(text) {
       if (line.toLowerCase().startsWith('description:')) currentShot.description = line.substring(12).trim();
       else if (line.toLowerCase().startsWith('script:')) currentShot.script = line.substring(7).trim();
       else if (line.toLowerCase().startsWith('image prompt:')) currentShot.image_prompt = line.substring(13).trim();
-      else if (line.toLowerCase().startsWith('anim prompt:') || line.toLowerCase().startsWith('animation prompt:')) currentShot.anim_prompt = line.substring(12).trim();
+      // Correctif : "animation prompt:" fait 17 caractères, substring(12) laissait "ompt: ..." dans le prompt
+      else if (/^anim(ation)?\s*prompt\s*:/i.test(line)) currentShot.anim_prompt = line.replace(/^anim(ation)?\s*prompt\s*:/i, '').trim();
       else if (line.toLowerCase().startsWith('durée:') || line.toLowerCase().startsWith('duration:')) {
          const val = line.split(':')[1];
          if(val) currentShot.duration = parseFloat(val.trim()) || 5;
@@ -664,64 +671,78 @@ const LocalAPI = (() => {
       return d.data[0].url;
     },
     
-    // --- GENERATION VIDEO AMELIOREE (support start + end frame) ---
-    async genVideo(prompt, imgStart, imgEnd, onProgress) {
-      // Compatibilité : si onProgress a été passé à la place de imgEnd (ancien appel à 3 args)
-      if (typeof imgEnd === 'function' && onProgress === undefined) {
-        onProgress = imgEnd;
-        imgEnd = null;
-      }
+    // --- GENERATION VIDEO AMELIOREE ---
+    // opts.lastFrame : image de fin (mode keyframe Agnes : first_frame et/ou last_frame)
+    // opts.seconds   : durée "4" à "12" (chaîne, exigé par agnes-video-2.5-flash)
+    async genVideo(prompt, imgStart, onProgress, opts = {}) {
       return await callWithPool(async (key) => {
-        const p = { model: AGNES_VID_MODEL, prompt: prompt || 'Cinematic motion', seconds: "5", mode: "keyframe", size: "720P" };
+        const p = { model: AGNES_VID_MODEL, prompt: prompt || 'Cinematic motion', seconds: opts.seconds || "5", mode: "keyframe", size: "720P" };
         if (imgStart) p.first_frame = imgStart;
-        if (imgEnd)   p.last_frame  = imgEnd;
-        
+        if (opts.lastFrame) p.last_frame = opts.lastFrame;
+        if (!p.first_frame && !p.last_frame) p.mode = 'text'; // keyframe exige au moins une image
+        const fatal = msg => { const e = new Error(msg); e.noRetry = true; return e; };
+
         let videoId = null;
         for (let attempt = 0; attempt < 15; attempt++) {
           const ctl = new AbortController(); const tid = setTimeout(()=>ctl.abort(), 60000);
+          let d = {}, r = null;
           try {
-            const r = await fetch(AGNES_BASE+'/videos', { method:'POST', signal:ctl.signal, headers:{'Content-Type':'application/json','Authorization':'Bearer '+key}, body:JSON.stringify(p) });
-            const txt = await r.text(); 
-            let d; try { d = JSON.parse(txt); } catch(e) { d = {}; }
-            
-            if (!r.ok || d.code === 'video_queue_full') { 
-              if (onProgress) onProgress('file_attente', (attempt+1) * 10); 
-              // Attente exponentielle : 15s, 20s, 25s... jusqu'à 1min max
-              const wait = Math.min(15000 + (attempt * 5000), 60000);
-              await new Promise(res => setTimeout(res, wait)); 
-              continue; 
-            }
-            videoId = d.video_id || d.task_id || d.id; 
-            if (videoId) break;
-          } catch(e) { 
-            if (attempt === 14) throw e; 
-            await new Promise(res => setTimeout(res, 5000)); 
-          } finally { clearTimeout(tid); }
+            r = await fetch(AGNES_BASE+'/videos', { method:'POST', signal:ctl.signal, headers:{'Content-Type':'application/json','Authorization':'Bearer '+key}, body:JSON.stringify(p) });
+            const txt = await r.text();
+            try { d = JSON.parse(txt); } catch(e) { d = { raw: txt }; }
+          } catch(e) {
+            clearTimeout(tid);
+            if (attempt === 14) throw e;
+            await new Promise(res => setTimeout(res, 5000));
+            continue;
+          }
+          clearTimeout(tid);
+
+          // 400/401/403/404 = requête refusée (paramètre, image, clé) : la relancer 15 fois ne changera rien
+          if ([400, 401, 403, 404, 422].includes(r.status)) {
+            const m = (d.error && (d.error.message || d.error)) || d.message || d.raw || ('HTTP ' + r.status);
+            throw fatal(`Refusé par Agnes (${r.status}) : ${String(m).slice(0, 160)}`);
+          }
+          if (!r.ok || d.code === 'video_queue_full') {
+            // Attente progressive : 15s, 20s, 25s... jusqu'à 1min max
+            const wait = Math.min(15000 + (attempt * 5000), 60000);
+            if (onProgress) onProgress('file_attente', Math.round(wait / 1000));
+            await new Promise(res => setTimeout(res, wait));
+            continue;
+          }
+          videoId = d.video_id || d.task_id || d.id;
+          if (videoId) break;
         }
-        
+
         if (!videoId) throw new Error('File pleine (15 essais).');
 
         const start = Date.now();
         while(true) {
           await new Promise(r=>setTimeout(r, 5000)); // 5s entre chaque check
-          if (Date.now() - start > 1200000) throw new Error('Timeout (20min)');
-          
+          if (Date.now() - start > 1200000) throw fatal('Timeout (20 min)');
+
+          let res;
           try {
             const r = await fetch(`https://apihub.agnes-ai.com/agnesapi?video_id=${videoId}&model_name=${AGNES_VID_MODEL}`, {headers:{'Authorization':'Bearer '+key}});
-            const res = await r.json();
-            
-            // Gestion robuste des statuts
-            const status = res.status || (res.data && res.data.status) || res.task_status;
-            if(onProgress && status) onProgress(status, Math.round((Date.now()-start)/1000));
-            
-            if(status === 'completed') {
-              return res.url || res.video_url || (res.data && res.data.url) || (res.data && res.data.video_url);
-            }
-            if(status === 'failed') {
-              throw new Error(res.error || (res.data && res.data.error) || 'Échec');
-            }
+            res = await r.json();
           } catch(e) {
-            // On ignore les erreurs de réseau mineures pendant le polling
+            continue; // erreur réseau passagère pendant le suivi : on réessaie au tour suivant
+          }
+
+          // Gestion robuste des statuts
+          const status = res.status || (res.data && res.data.status) || res.task_status;
+          const progress = res.progress ?? (res.data && res.data.progress);
+          if(onProgress && status) onProgress(status, Math.round((Date.now()-start)/1000), progress);
+
+          if(status === 'completed') {
+            const url = res.url || res.video_url || (res.data && res.data.url) || (res.data && res.data.video_url);
+            if (url) return url;
+            throw fatal('Vidéo terminée mais sans URL dans la réponse');
+          }
+          // Correctif : avant, ce throw était avalé par le catch → l'app attendait 20 min pour rien.
+          if(status === 'failed') {
+            const err = res.error || (res.data && res.data.error);
+            throw fatal(typeof err === 'string' ? err : (err && err.message) || 'Échec de génération');
           }
         }
       }, 'génération vidéo');
@@ -747,16 +768,7 @@ function renderShots() {
   
   $('shotList').innerHTML = SHOTS.map((s, index) => {
     let mainImg = s.images.length > 0 ? s.images[0].url : null;
-    let thumbs = s.images.slice(1).map((img, idx) => {
-      const realIdx = idx + 1;
-      const isEnd = img.role === 'end';
-      return `<div class="thumb" title="${esc(img.name)}">
-        <img src="${img.url}">
-        ${isEnd ? '<span class="frame-badge">FIN</span>' : ''}
-        <button class="rm" onclick="removeImage(${s.id}, ${realIdx})" title="Supprimer">✕</button>
-        <button class="set-end ${isEnd ? 'active' : ''}" onclick="setEndFrame(${s.id}, ${realIdx})" title="${isEnd ? 'Retirer la fin' : 'Marquer comme image de fin'}">🏁</button>
-      </div>`;
-    }).join('');
+    let thumbs = s.images.slice(1).map((img, idx) => `<div class="thumb" title="${esc(img.name)}"><img src="${img.url}"><button class="rm" onclick="removeImage(${s.id}, ${idx + 1})" title="Supprimer">✕</button></div>`).join('');
     const isFirst = index === 0; const isLast = index === SHOTS.length - 1;
     return `
     <div class="shot-card">
@@ -766,7 +778,7 @@ function renderShots() {
       </div>
       <div class="shot-body">
         <div class="shot-media">
-          ${mainImg ? `<div style="position:relative"><img src="${mainImg}" class="main-img"><span class="frame-badge-start">DÉBUT</span></div>` : '<div style="background:#ccc;aspect-ratio:16/9;border-radius:8px;display:grid;place-items:center;color:#666">Aucune image</div>'}
+          ${mainImg ? `<img src="${mainImg}" class="main-img">` : '<div style="background:#ccc;aspect-ratio:16/9;border-radius:8px;display:grid;place-items:center;color:#666">Aucune image</div>'}
           ${s.video_url ? `<video src="${s.video_url}" controls preload="metadata"></video>` : '<div style="font-size:11px;color:var(--ink3);margin-top:5px;text-align:center;">Vidéo non générée</div>'}
           <div class="thumbnails">${thumbs}</div>
         </div>
@@ -796,72 +808,188 @@ function renderShots() {
   }).join('');
 }
 
+// --- IMAGES CLÉS (DÉBUT / FIN) ---
+// s.kf_start : index de l'image de début (défaut 0 = comportement historique)
+// s.kf_end   : null (aucune) | index d'une image du plan | 'next' (image de début du plan suivant)
+function startIndex(s) { return (Number.isInteger(s.kf_start) && s.images && s.images[s.kf_start]) ? s.kf_start : 0; }
+
+function getKeyframes(s) {
+  const imgs = s.images || [];
+  const si = startIndex(s);
+  const start = imgs[si] ? imgs[si].url : null;
+  let end = null, endLabel = 'Aucune', endWarn = '';
+  if (s.kf_end === 'next') {
+    const idx = SHOTS.findIndex(x => x.id === s.id);
+    const nxt = SHOTS[idx + 1];
+    if (nxt && nxt.images && nxt.images.length) {
+      end = nxt.images[startIndex(nxt)].url;
+      endLabel = `Début de ${nxt.ident || 'plan ' + (idx + 2)}`;
+    } else {
+      endWarn = nxt ? "Le plan suivant n'a pas encore d'image : vidéo générée sans image de fin." : "C'est le dernier plan : vidéo générée sans image de fin.";
+    }
+  } else if (Number.isInteger(s.kf_end) && imgs[s.kf_end] && s.kf_end !== si) {
+    end = imgs[s.kf_end].url;
+    endLabel = `Image ${s.kf_end + 1}`;
+  }
+  return { start, end, startIdx: si, endLabel, endWarn };
+}
+
+function clampSeconds(v) {
+  let n = Math.round(parseFloat(v));
+  if (!n || n <= 0) n = Math.round(parseFloat($('vidSecondsDefault').value)) || 5;
+  return String(Math.min(12, Math.max(4, n))); // agnes-video-2.5-flash : "4" à "12"
+}
+
+// Prompt réellement envoyé : intention du plan + consigne de continuité + style global.
+// La doc Agnes (mode keyframe) recommande de décrire ce qui se passe ENTRE les deux images.
+function buildVideoPrompt(s, hasEnd) {
+  const base = (s.anim_prompt || s.description || s.script || 'Cinematic motion').trim();
+  const parts = [base];
+  if (hasEnd) parts.push('The shot starts exactly on the first frame and moves with smooth, continuous motion to end exactly on the composition of the last frame. Keep characters, clothing, props and set identical between the two frames.');
+  else parts.push('Keep characters, clothing and set consistent with the first frame.');
+  if (GLOBAL_STYLE_PROMPT) parts.push('Visual style: ' + GLOBAL_STYLE_PROMPT);
+  return parts.join('\n');
+}
+
+async function generateShotVideo(s, onProgress) {
+  const kf = getKeyframes(s);
+  return LocalAPI.genVideo(buildVideoPrompt(s, !!kf.end), kf.start, onProgress, { lastFrame: kf.end, seconds: clampSeconds(s.duration) });
+}
+
+function progressLabel(status, elapsed, progress) {
+  if (status === 'file_attente') return `File pleine, pause ${elapsed}s…`;
+  const pct = Number.isFinite(progress) ? ` ${progress}%` : '';
+  return `${status}${pct} (${elapsed}s)`;
+}
+
+window.setKeyframe = async (id, which, val) => {
+  const s = SHOTS.find(x => x.id === id); if (!s) return;
+  if (which === 'start') s.kf_start = parseInt(val, 10) || 0;
+  else s.kf_end = val === '' ? null : (val === 'next' ? 'next' : parseInt(val, 10));
+  if (Number.isInteger(s.kf_end) && s.kf_end === s.kf_start) s.kf_end = null;
+  await LocalAPI.saveShot(s);
+  renderIndividualVideos();
+};
+
+window.addEndFrame = (id) => {
+  const s = SHOTS.find(x => x.id === id); if (!s) return;
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*';
+  input.onchange = (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      s.images.push({ url: ev.target.result, name: file.name });
+      s.kf_end = s.images.length - 1;
+      await LocalAPI.saveShot(s);
+      renderIndividualVideos(); renderShots(); renderImgGrid();
+      toast('Image de fin ajoutée', 'ok');
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+};
+
+// L'IA regarde les images de début/fin et écrit un prompt de mouvement (modifiable ensuite)
+window.writeTransitionPrompt = async (id, btn) => {
+  const s = SHOTS.find(x => x.id === id); if (!s) return;
+  if (!API_KEYS.length) return toast('Clés API requises', 'err');
+  const kf = getKeyframes(s);
+  const label = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  try {
+    const content = [{ type: 'image_url', image_url: { url: kf.start } }];
+    if (kf.end) content.push({ type: 'image_url', image_url: { url: kf.end } });
+    const intent = [s.anim_prompt, s.description].filter(Boolean).join(' / ') || 'aucune, propose un mouvement cohérent';
+    content.push({ type: 'text', text:
+      `Tu es directeur de la photographie. ${kf.end ? "Image 1 = premier plan exact de la vidéo, image 2 = dernier plan exact." : "L'image = premier plan exact de la vidéo."} ` +
+      `Durée : ${clampSeconds(s.duration)} secondes. Intention du réalisateur : ${intent}.\n` +
+      `Écris un prompt vidéo EN ANGLAIS (50 à 90 mots), dans cet ordre : sujet et décor ; action et évolution ${kf.end ? "jusqu'à la composition de l'image 2" : ''} ; mouvement de caméra précis (push-in, pan, tracking…) ; lumière et ambiance ; éléments qui doivent rester identiques. ` +
+      `Pas de liste, pas de guillemets, réponds uniquement par le prompt.` });
+    const res = await LocalAPI.agnesCall('/chat/completions', { model: AGNES_TXT_MODEL, messages: [{ role: 'user', content }] }, 90);
+    const txt = (res.choices[0].message.content || '').trim().replace(/^["'«]+|["'»]+$/g, '');
+    if (!txt) throw new Error('Réponse vide');
+    s.anim_prompt = txt;
+    await LocalAPI.saveShot(s);
+    renderIndividualVideos(); renderShots();
+    toast('Prompt écrit — relisez-le avant de générer', 'ok');
+  } catch (e) {
+    toast('Prompt IA : ' + e.message, 'err');
+    btn.disabled = false; btn.innerHTML = label;
+  }
+};
+
 // --- RENDER INDIVIDUAL VIDEOS ---
 function renderIndividualVideos() {
   const grid = $('vidIndividualGrid');
   if(!grid) return;
-  
+
   const eligible = SHOTS.filter(s => s.images && s.images.length > 0);
   if(!eligible.length) { grid.innerHTML = '<p class="hint-line">Aucun plan avec image.</p>'; return; }
 
+  const isLocal = u => typeof u === 'string' && u.startsWith('data:');
+
   grid.innerHTML = eligible.map(s => {
-    const frames = getShotFrames(s);
+    const kf = getKeyframes(s);
+    const endVal = s.kf_end === 'next' ? 'next' : (Number.isInteger(s.kf_end) ? String(s.kf_end) : '');
+    const startOpts = s.images.map((img, i) => `<option value="${i}" ${i === kf.startIdx ? 'selected' : ''}>Image ${i + 1}</option>`).join('');
+    const endOpts = `<option value="">Aucune (fin libre)</option>`
+      + s.images.map((img, i) => i === kf.startIdx ? '' : `<option value="${i}" ${endVal === String(i) ? 'selected' : ''}>Image ${i + 1}</option>`).join('')
+      + `<option value="next" ${endVal === 'next' ? 'selected' : ''} title="Image de début du plan suivant">🔗 Plan suivant</option>`;
+    const localWarn = (isLocal(kf.start) || isLocal(kf.end))
+      ? `<div class="kf-hint warn">ⓘ Image locale (base64). La doc Agnes demande une URL publique : si la vidéo est refusée, faites « Envoyer sur GitHub » (dépôt public) pour convertir les images en URL.</div>` : '';
+
     return `
-    <div class="card drop-zone" style="padding:.5rem; text-align:center;">
-      <div style="font-weight:bold; margin-bottom:.5rem; display:flex; justify-content:space-between; align-items:center;">
-        <span style="font-size:.85rem;color:var(--navy)">${s.ident} - ${esc(s.title).substring(0, 20)}...</span>
-        ${s.video_url ? '<span class="badge" style="background:var(--green);color:#fff;padding:2px 6px;border-radius:10px;font-size:9px">✅ Fait</span>' : ''}
+    <div class="card drop-zone" style="padding:.6rem; text-align:center;">
+      <div style="font-weight:bold; margin-bottom:.5rem; display:flex; justify-content:space-between; align-items:center; gap:.4rem;">
+        <span style="font-size:.85rem;color:var(--navy);text-align:left">${esc(s.ident)} - ${esc((s.title || '').substring(0, 28))}</span>
+        ${s.video_url ? '<span class="badge" style="background:var(--green);color:#fff;padding:2px 6px;border-radius:10px;font-size:9px;white-space:nowrap">✅ Fait</span>' : ''}
       </div>
 
-      <div class="frames-preview">
-        <div class="frame-slot frame-slot-start">
-          <div class="frame-label">▶ Début</div>
-          ${frames.start ? `<img src="${frames.start}">` : '<div class="frame-slot-empty">—</div>'}
-        </div>
-        <div class="frame-slot frame-slot-end">
-          <div class="frame-label">🏁 Fin</div>
-          ${frames.end 
-            ? `<img src="${frames.end}">` 
-            : '<div class="frame-slot-empty">Marquez une 2<sup>e</sup> image avec 🏁 dans le storyboard</div>'}
-        </div>
+      <div class="kf-pair">
+        <div class="kf-slot"><img src="${kf.start}" alt="Image de début"><span class="kf-tag">Début</span></div>
+        <span class="kf-arrow">→</span>
+        <div class="kf-slot">${kf.end
+          ? `<img src="${kf.end}" alt="Image de fin"><span class="kf-tag end">Fin</span>`
+          : `<div class="kf-empty" onclick="addEndFrame(${s.id})" title="Ajouter une image de fin">＋ Image de fin<br>(optionnel)</div>`}</div>
       </div>
 
-      ${s.video_url ? `<video src="${s.video_url}" controls style="width:100%; border-radius:8px; border:2px solid var(--green); margin:.5rem 0;"></video>` : ''}
+      <div class="kf-row">
+        <div><label>Début</label><select onchange="setKeyframe(${s.id}, 'start', this.value)">${startOpts}</select></div>
+        <div><label>Fin</label><select onchange="setKeyframe(${s.id}, 'end', this.value)">${endOpts}</select></div>
+        <div><label>Durée</label><input type="number" min="4" max="12" value="${clampSeconds(s.duration)}" onchange="updateShotField(${s.id}, 'duration', this.value); this.value = clampSeconds(this.value)"></div>
+      </div>
+      ${kf.endWarn ? `<div class="kf-hint warn">${esc(kf.endWarn)}</div>` : ''}
+      ${localWarn}
 
-      <button class="btn btn-gold" style="width:100%; padding:.3rem; font-size:.65rem; min-height:32px;" onclick="genSingleVideo(${s.id}, this)">
-        ${s.video_url ? '🔄 Régénérer la vidéo' : '▶️ Générer la vidéo'}
+      <div class="kf-prompt">
+        <label><span>Prompt animation</span>
+          <button class="btn-mini" style="padding:.2rem .6rem" onclick="writeTransitionPrompt(${s.id}, this)" title="L'IA regarde les images et écrit le mouvement">✨ Écrire avec l'IA</button>
+        </label>
+        <textarea oninput="updateShotField(${s.id}, 'anim_prompt', this.value)" placeholder="Ce qui se passe entre le début et la fin : action, caméra, lumière…">${esc(s.anim_prompt || '')}</textarea>
+      </div>
+
+      ${s.video_url ? `<video src="${esc(s.video_url)}" controls style="width:100%; border-radius:8px; border:2px solid var(--green); margin:.5rem 0;"></video>` : ''}
+      <button class="btn btn-gold" style="width:100%; padding:.3rem; font-size:.65rem; min-height:34px; margin-top:.4rem" onclick="genSingleVideo(${s.id}, this)">
+        ${s.video_url ? '🔄 Régénérer' : '▶️ Générer'} ${kf.end ? '(début → fin)' : '(depuis le début)'}
       </button>
-    </div>
-  `;
+    </div>`;
   }).join('');
 }
 
-// --- FONCTION POUR GÉNÉRER UNE SEULE VIDÉO (avec start + end frame) ---
+// --- FONCTION POUR GÉNÉRER UNE SEULE VIDÉO ---
 window.genSingleVideo = async (id, btnElement) => {
   const s = SHOTS.find(x => x.id === id);
   if(!s || !s.images.length) return toast("Il n'y a pas d'image pour ce plan", "err");
   if(!API_KEYS.length) return toast('Configurez vos clés API', 'err');
-
-  const frames = getShotFrames(s);
-  if (!frames.start) return toast("Pas d'image de départ", "err");
 
   const btn = btnElement;
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Génération...';
 
   try {
-    const url = await LocalAPI.genVideo(
-      s.anim_prompt || s.script || s.description || "Cinematic motion",
-      frames.start,
-      frames.end,
-      (status, elapsed) => {
-        if (status === 'file_attente') {
-          btn.innerHTML = `⏳ Pause ${elapsed}s...`;
-        } else {
-          btn.innerHTML = `⏳ ${status} (${elapsed}s)...`;
-        }
-      }
-    );
+    const url = await generateShotVideo(s, (status, elapsed, progress) => {
+      btn.innerHTML = `⏳ ${progressLabel(status, elapsed, progress)}`;
+    });
     
     s.video_url = url;
     await LocalAPI.saveShot(s);
@@ -895,34 +1023,14 @@ function renderVidGrid() {
 
 window.moveShot = async (id, direction) => { const index = SHOTS.findIndex(s => s.id === id); if (index === -1) return; const targetIndex = index + direction; if (targetIndex < 0 || targetIndex >= SHOTS.length) return; const temp = SHOTS[index]; SHOTS[index] = SHOTS[targetIndex]; SHOTS[targetIndex] = temp; for (let i = 0; i < SHOTS.length; i++) { SHOTS[i].order = i + 1; await LocalAPI.saveShot(SHOTS[i]); } renderShots(); };
 window.updateShotField = async (id, field, val) => { const s = SHOTS.find(x => x.id === id); if(s) { s[field] = (field === 'duration') ? parseFloat(val) : val.trim(); await LocalAPI.saveShot(s); } };
-window.removeImage = async (shotId, imgIndex) => { const s = SHOTS.find(x => x.id === shotId); if (!s) return; if (confirm('Supprimer cette image ?')) { s.images.splice(imgIndex, 1); await LocalAPI.saveShot(s); renderShots(); renderImgGrid(); renderIndividualVideos(); } };
+window.removeImage = async (shotId, imgIndex) => { const s = SHOTS.find(x => x.id === shotId); if (!s) return; if (confirm('Supprimer cette image ?')) { s.images.splice(imgIndex, 1);
+  // Recaler les images clés : sinon "Fin = image 3" pointerait sur une autre image après suppression
+  const shift = k => Number.isInteger(k) ? (k === imgIndex ? null : (k > imgIndex ? k - 1 : k)) : k;
+  s.kf_end = shift(s.kf_end); const ns = shift(s.kf_start); s.kf_start = Number.isInteger(ns) ? ns : 0;
+  if (Number.isInteger(s.kf_end) && s.kf_end === startIndex(s)) s.kf_end = null;
+  await LocalAPI.saveShot(s); renderShots(); renderImgGrid(); renderIndividualVideos(); } };
 window.deleteShot = async (id) => { if(!confirm('Supprimer ce plan ?')) return; await LocalAPI.clearShots(); SHOTS = SHOTS.filter(s => s.id !== id); for(const s of SHOTS) await LocalAPI.saveShot(s); renderShots(); renderImgGrid(); };
 window.addShotAdjacent = async (currentId, position) => { SHOTS = await LocalAPI.getShots(); const idx = SHOTS.findIndex(s => s.id === currentId); if(idx === -1) return; let newOrder = (position === 'before') ? (idx === 0 ? SHOTS[0].order - 1 : (SHOTS[idx - 1].order + SHOTS[idx].order) / 2) : (idx === SHOTS.length - 1 ? SHOTS[idx].order + 1 : (SHOTS[idx].order + SHOTS[idx + 1].order) / 2); await LocalAPI.saveShot({ ident: '', title: 'Nouveau plan', order: newOrder, description: '', script: '', duration: 0, images: [] }); SHOTS = await LocalAPI.getShots(); renderShots(); };
-
-// Marque/démarque une image comme image de fin (une seule par plan)
-window.setEndFrame = async (shotId, imgIndex) => {
-  const s = SHOTS.find(x => x.id === shotId);
-  if (!s || !s.images[imgIndex]) return;
-  if (imgIndex === 0) return toast('La 1ère image est toujours le début', 'warn');
-
-  // Une seule image de fin possible : on nettoie les autres
-  s.images.forEach((img, i) => {
-    if (i !== imgIndex && img.role === 'end') delete img.role;
-  });
-
-  if (s.images[imgIndex].role === 'end') {
-    delete s.images[imgIndex].role;
-    toast('Image de fin retirée', 'ok');
-  } else {
-    s.images[imgIndex].role = 'end';
-    toast('Image marquée comme fin ✓', 'ok');
-  }
-
-  await LocalAPI.saveShot(s);
-  renderShots();
-  renderImgGrid();
-  renderIndividualVideos();
-};
 
 function renderImgGrid() {
   const grid = $('imgGrid');
@@ -936,16 +1044,7 @@ function renderImgGrid() {
     const hasImg = s.images && s.images.length > 0;
     const imgUrl = hasImg ? s.images[0].url : null;
     
-    let thumbs = s.images.slice(1).map((img, idx) => {
-      const realIdx = idx + 1;
-      const isEnd = img.role === 'end';
-      return `<div class="thumb" title="${esc(img.name)}">
-        <img src="${img.url}">
-        ${isEnd ? '<span class="frame-badge">FIN</span>' : ''}
-        <button class="rm" onclick="removeImage(${s.id}, ${realIdx})" title="Supprimer">✕</button>
-        <button class="set-end ${isEnd ? 'active' : ''}" onclick="setEndFrame(${s.id}, ${realIdx})" title="${isEnd ? 'Retirer la fin' : 'Marquer comme image de fin'}">🏁</button>
-      </div>`;
-    }).join('');
+    let thumbs = s.images.slice(1).map((img, idx) => `<div class="thumb" title="${esc(img.name)}"><img src="${img.url}"><button class="rm" onclick="removeImage(${s.id}, ${idx + 1})" title="Supprimer">✕</button></div>`).join('');
 
     return `
       <div class="shot-card drop-zone" ondragover="event.preventDefault(); this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleDrop(event, ${s.id})">
@@ -955,7 +1054,7 @@ function renderImgGrid() {
         </div>
         <div style="padding: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
           ${hasImg 
-            ? `<div style="position:relative"><img src="${imgUrl}" style="width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:8px; border:1px solid var(--line);"><span class="frame-badge-start">DÉBUT</span></div>` 
+            ? `<img src="${imgUrl}" style="width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:8px; border:1px solid var(--line);">` 
             : `<div style="width:100%; aspect-ratio:16/9; background:#e8eef4; border-radius:8px; border:1px dashed var(--line); display:grid; place-items:center; color:var(--ink3); font-size:12px;">Aucune image (Glissez-déposez ici)</div>`}
           
           ${thumbs ? `<div class="thumbnails" style="margin-top:0.5rem;">${thumbs}</div>` : ''}
@@ -1156,7 +1255,6 @@ window.handleDrop = async (e, id) => {
       await LocalAPI.saveShot(s);
       renderImgGrid();
       renderShots();
-      renderIndividualVideos();
     };
     reader.readAsDataURL(file);
   }
@@ -1174,7 +1272,6 @@ window.genOneImg = async (id) => {
     await LocalAPI.saveShot(s);
     renderImgGrid();
     renderShots();
-    renderIndividualVideos();
     toast('Image générée', 'ok');
   } catch (e) {
     toast('Erreur: ' + e.message, 'err');
@@ -1197,7 +1294,6 @@ window.uploadOneImg = (id) => {
       await LocalAPI.saveShot(s);
       renderImgGrid();
       renderShots();
-      renderIndividualVideos();
     };
     reader.readAsDataURL(file);
   };
@@ -1254,7 +1350,6 @@ $('uploadAllBtn').onclick = () => {
     }
     renderImgGrid();
     renderShots();
-    renderIndividualVideos();
     toast('Lot uploadé', 'ok');
   };
   input.click();
@@ -1299,7 +1394,6 @@ async function generateAllImagesBatch() {
   }
   renderImgGrid();
   renderShots();
-  renderIndividualVideos();
   toast('Génération terminée', 'ok');
 }
 
@@ -1313,24 +1407,16 @@ async function generateAllVideosBatch() {
       const i = cursor++; if(i >= queue.length) return; const s = queue[i]; const row = rows[i];
       try {
         row.className = 'step running'; row.innerHTML = `<span class="spinner"></span> <b>${esc(s.ident)}</b> · Création…`;
-        const frames = getShotFrames(s);
-        if (!frames.start) throw new Error("Pas d'image de départ");
-        const url = await LocalAPI.genVideo(
-          s.anim_prompt || s.script || "Cinematic motion",
-          frames.start,
-          frames.end,
-          (status, elapsed) => {
-            if(status === 'file_attente') { row.innerHTML = `<span class="spinner"></span> <b>${esc(s.ident)}</b> · File pleine, pause de ${elapsed}s…`; }
-            else { row.innerHTML = `<span class="spinner"></span> <b>${esc(s.ident)}</b> · ${status} (${elapsed}s)`; }
-          }
-        );
-        s.video_url = url; await LocalAPI.saveShot(s); done++; row.className = 'step done'; row.innerHTML = `✅ <b>${esc(s.ident)}</b> · Terminé`;
+        const kfTag = getKeyframes(s).end ? ' · début → fin' : '';
+        const url = await generateShotVideo(s, (status, elapsed, progress) => { row.innerHTML = `<span class="spinner"></span> <b>${esc(s.ident)}</b>${kfTag} · ${esc(progressLabel(status, elapsed, progress))}`; });
+        s.video_url = url; await LocalAPI.saveShot(s); done++; row.className = 'step done'; row.innerHTML = `✅ <b>${esc(s.ident)}</b>${kfTag} · Terminé`;
       } catch(e) { done++; row.className = 'step error'; row.innerHTML = `❌ <b>${esc(s.ident)}</b> · ${esc(e.message)}`; }
       $('progVid').textContent = `${done}/${queue.length}`;
     }
   }
   await Promise.all(Array.from({length:conc}, ()=>worker())); 
-  toast('Génération vidéos terminée', 'ok'); 
+  toast('Génération vidéos terminée', 'ok');
+  renderShots(); // met aussi à jour le compteur "vidéo(s) prête(s)"
   renderIndividualVideos();
   renderVidGrid();
 }
@@ -1379,7 +1465,7 @@ $('saveProjectBtn').onclick = async () => { await LocalAPI.saveProject({name:$('
 $('apiValidate').onclick = () => { 
   const raw = $('apiInput').value.split('\n').filter(l=>l.trim()); 
   API_KEYS = sanitizeKeys(raw); 
-  initKeyPool(API_KEYS);
+  initKeyPool(API_KEYS); // <--- Initialisation du pool
   localStorage.setItem('sf_api_keys', JSON.stringify(API_KEYS)); 
   $('apiStatus').textContent = API_KEYS.length+' clé(s) valide(s)'; 
   $('apiStatus').className = 'status ok'; 
@@ -1388,7 +1474,7 @@ $('apiValidate').onclick = () => {
 };
 $('apiClear').onclick = () => { 
   API_KEYS = []; 
-  initKeyPool([]);
+  initKeyPool([]); // <--- Reset du pool
   localStorage.removeItem('sf_api_keys'); 
   $('apiInput').value = ''; 
   $('apiStatus').textContent = 'Aucune clé'; 
@@ -1408,7 +1494,7 @@ async function init() {
   const savedKeys = JSON.parse(localStorage.getItem('sf_api_keys') || '[]'); 
   if (savedKeys.length) { 
     API_KEYS = sanitizeKeys(savedKeys); 
-    initKeyPool(API_KEYS);
+    initKeyPool(API_KEYS); // <--- Initialisation du pool au démarrage
     if(API_KEYS.length > 0) { 
       $('apiInput').value = API_KEYS.join('\n'); 
       $('apiStatus').textContent = API_KEYS.length + ' clé(s) restaurée(s)'; 
