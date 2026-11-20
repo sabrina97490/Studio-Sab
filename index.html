@@ -140,6 +140,22 @@ input:focus,textarea:focus,select:focus{border-color:var(--gold);background:#fff
         <button class="btn btn-gold" id="saveProjectBtn" style="flex:1">💾 Sauvegarder (Local)</button>
         <button class="btn btn-cyan" id="exportProjectBtn" style="flex:1">📤 Exporter le projet (.json)</button>
         <button class="btn btn-cyan" id="importProjectBtn" style="flex:1">📂 Importer un projet</button>
+        <button class="btn btn-cyan" id="newProjectBtn" style="flex:1">✦ Nouveau projet</button>
+      </div>
+
+      <div id="newProjPanel" class="hidden" style="margin-top:1rem;padding:1rem;border:2px dashed var(--gold);border-radius:14px;background:#fff">
+        <label class="lab" style="margin-top:0">Nom du nouveau projet</label>
+        <input type="text" id="newProjName" placeholder="Ex: ET-SI Épisode 5">
+        <label style="display:flex;gap:.6rem;align-items:center;margin-top:.8rem;font:500 13px var(--sans);cursor:pointer">
+          <input type="checkbox" id="newProjKeepStyle" style="width:auto;min-height:auto"> Garder le style visuel et les références (épisode d'une même série)
+        </label>
+        <p class="kf-hint" style="margin-top:.7rem">Une sauvegarde de « <b id="newProjOld"></b> » (.json, réimportable) se télécharge automatiquement avant de vider l'app.
+          Elle contient les liens des vidéos, pas les fichiers : pour garder les vidéos elles-mêmes, faites d'abord <b>Export › Tout exporter</b>.</p>
+        <div style="display:flex;gap:.5rem;margin-top:.7rem;flex-wrap:wrap">
+          <button class="btn btn-gold" id="newProjConfirm" style="flex:2">✦ Créer le projet</button>
+          <button class="btn btn-cyan" id="newProjToExport" style="flex:1">📦 Exporter d'abord</button>
+          <button class="btn btn-cyan" id="newProjCancel" style="flex:1">Annuler</button>
+        </div>
       </div>
     </div>
     
@@ -376,17 +392,56 @@ function speakBrowser(text) { if (!('speechSynthesis' in window)) return; speech
 async function testVoice() { if (!IS_PUTER_CONNECTED && $('voiceSelect').value !== 'browser') return toast("Connectez-vous à Puter", 'err'); const voiceVal = $('voiceSelect').value; toast("Test...", "info"); if (voiceVal === 'browser') { speakBrowser("Bonjour."); } else { const audio = await generateAudioPuter("Bonjour.", voiceVal); if (audio) audio.play(); else toast("Échec", "err"); } }
 
 // --- GITHUB ---
+// Identifiant stable du projet : permet de reconnaître "son" storyboard sur GitHub,
+// même si on renomme le projet. Créé au besoin pour les projets existants.
+function newUid() { return (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)); }
+async function ensureProjectUid() {
+  if (!PROJECT) await LocalAPI.saveProject({ name: $('projectName').value, pitch: $('projectPitch').value, global_style: GLOBAL_STYLE_PROMPT });
+  if (!PROJECT.uid) { PROJECT.uid = newUid(); await LocalAPI.saveProject(PROJECT); }
+  return PROJECT.uid;
+}
+
+// Lit storyboard.json via l'API (pas de cache, contrairement à raw.githubusercontent.com)
+async function readRemoteStoryboard(user, repo, token) {
+  const r = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/storyboard.json?t=${Date.now()}`,
+    { headers: { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github.raw' } });
+  if (!r.ok) return null;
+  try { const d = JSON.parse(await r.text()); return Array.isArray(d) ? d : null; } catch (e) { return null; }
+}
+
+// La génération de nuit relit storyboard.json avant chaque plan : si un plan disparaît
+// pendant qu'elle tourne, la vidéo en cours de ce plan est perdue. On prévient avant d'envoyer.
+async function nightRunRisk(user, repo, token) {
+  try {
+    const r = await fetch(`https://api.github.com/repos/${user}/${repo}/actions/runs?status=in_progress&per_page=5`,
+      { headers: { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json' } });
+    if (!r.ok) return []; // token sans droit "Actions" : on ne peut pas vérifier, on n'empêche rien
+    if (!(await r.json()).total_count) return [];
+    const remote = await readRemoteStoryboard(user, repo, token) || [];
+    const local = new Set(SHOTS.map(s => s.ident));
+    return remote.filter(s => !s.video_url && s.images && s.images.length && !local.has(s.ident)).map(s => s.ident);
+  } catch (e) { return []; }
+}
+
 $('pushToGithubBtn').onclick = async () => {
   const user = $('ghUser').value.trim(), repo = $('ghRepo').value.trim(), token = $('ghToken').value.trim();
   if (!user || !repo || !token) return toast('Remplissez les infos', 'err');
-  $('ghStatus').classList.remove('hidden'); $('ghStatus').textContent = '⏳ Envoi...';
+  $('ghStatus').classList.remove('hidden'); $('ghStatus').className = 'status'; $('ghStatus').textContent = '⏳ Vérification…';
+  const atRisk = await nightRunRisk(user, repo, token);
+  if (atRisk.length && !confirm(`⚠️ La génération de nuit tourne en ce moment sur GitHub.\n\nCes plans attendent encore leur vidéo et ne sont pas dans votre storyboard actuel : ${atRisk.join(', ')}.\nSi vous envoyez maintenant, la vidéo en cours de génération sera perdue.\n\nEnvoyer quand même ?`)) {
+    $('ghStatus').textContent = 'Envoi annulé : réessayez quand la génération de nuit sera terminée (onglet Actions du dépôt).'; return;
+  }
+  $('ghStatus').textContent = '⏳ Envoi...';
   try {
+    const uid = await ensureProjectUid();
+    // Un dossier d'images par projet : sinon le P01 d'un nouveau projet écrase l'image P01 de l'ancien
+    const folder = slug(PROJECT.name) || 'projet';
     for (let s of SHOTS) {
       if(!s.images) continue;
       for (let i = 0; i < s.images.length; i++) {
         let img = s.images[i];
         if (img.url.startsWith('data:image/')) {
-          let ext = img.url.includes('image/jpeg') ? 'jpg' : 'png'; let filename = `${s.ident}_${i}.${ext}`;
+          let ext = img.url.includes('image/jpeg') ? 'jpg' : 'png'; let filename = `${folder}/${slug(s.ident) || 'plan'}_${i}.${ext}`;
           $('ghStatus').textContent = `⏳ Upload image ${filename}...`;
           const base64Content = img.url.split(',')[1];
           let sha = null;
@@ -412,7 +467,10 @@ $('pushToGithubBtn').onclick = async () => {
         first_frame: kf.start,
         last_frame: kf.end,
         seconds: clampSeconds(s.duration),
-        video_prompt: buildVideoPrompt(s, !!kf.end)
+        video_prompt: buildVideoPrompt(s, !!kf.end),
+        // Projet d'origine : « Récupérer les vidéos » refuse celles d'un autre projet
+        project_uid: uid,
+        project_name: PROJECT.name || ''
       };
     });
     
@@ -441,6 +499,13 @@ $('pullFromGithubBtn').onclick = async () => {
     
     const remoteData = await res.json();
     if (!Array.isArray(remoteData)) throw new Error("Le fichier sur GitHub n'est pas un format valide.");
+
+    // Le storyboard sur GitHub est-il celui de CE projet ? Sinon, le P01 de l'ancien projet
+    // donnerait sa vidéo au P01 du nouveau. On ne bloque que si les DEUX projets ont un identifiant
+    // et qu'ils diffèrent : un projet ou un envoi d'avant cette version garde l'ancien comportement.
+    const myUid = PROJECT && PROJECT.uid;
+    const other = myUid && remoteData.find(s => s.project_uid && s.project_uid !== myUid);
+    if (other) throw new Error(`Le storyboard sur GitHub appartient à un autre projet (« ${other.project_name || '?'} »). Envoyez d'abord ce projet sur GitHub.`);
 
     let videoCount = 0;
     for (const remoteShot of remoteData) {
@@ -651,6 +716,8 @@ const LocalAPI = (() => {
     async saveShot(s) { if(!s.images) s.images = []; const id = await put('shots', s); s.id = id; return id; },
     async getShots() { const shots = await getAll('shots'); shots.forEach(s => { if(s.order === undefined) s.order = s.id; if(!s.images) s.images = []; }); return shots.sort((a,b)=>a.order - b.order); },
     async clearShots() { return await clear('shots'); },
+    async clearVideos() { return await clear('videos'); },
+    async clearReferences() { return await clear('references'); },
     async saveReference(r) { const id = await put('references', r); r.id = id; return id; },
     async getReferences() { return await getAll('references'); },
     async deleteReference(id) { const s=await store('references','readwrite'); return rq2p(s.delete(id)); },
@@ -1680,7 +1747,52 @@ document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () =>
 document.querySelectorAll('#genMode button').forEach(b => { b.addEventListener('click', () => { document.querySelectorAll('#genMode button').forEach(x => x.classList.remove('active')); b.classList.add('active'); GEN_MODE = b.dataset.genmode; }); });
 $('loginBtn').onclick = async () => { try { const u = await LocalAPI.login($('loginUser').value, $('loginPin').value); $('loginBox').classList.add('hidden'); $('main').classList.remove('hidden'); $('logoutBtn').classList.remove('hidden'); PROJECT = await LocalAPI.getProject(); if(PROJECT) { $('projectName').value = PROJECT.name||''; $('projectPitch').value = PROJECT.pitch||''; if(PROJECT.global_style) { GLOBAL_STYLE_PROMPT = PROJECT.global_style; $('styleStatus').textContent = "Style actif : " + GLOBAL_STYLE_PROMPT; $('styleStatus').className = "status ok"; } } SHOTS = await LocalAPI.getShots(); await loadCustomReferences(); toast('Bienvenue', 'ok'); } catch(e) { $('loginStatus').textContent = e.message; $('loginStatus').className='status err'; } };
 $('logoutBtn').onclick = () => { localStorage.removeItem('sf_session'); location.reload(); };
-$('saveProjectBtn').onclick = async () => { await LocalAPI.saveProject({name:$('projectName').value, pitch:$('projectPitch').value, global_style: GLOBAL_STYLE_PROMPT}); toast('Projet sauvegardé', 'ok'); };
+$('saveProjectBtn').onclick = async () => { await LocalAPI.saveProject({name:$('projectName').value, pitch:$('projectPitch').value, global_style: GLOBAL_STYLE_PROMPT, uid: PROJECT && PROJECT.uid}); toast('Projet sauvegardé', 'ok'); };
+
+// --- NOUVEAU PROJET ---
+// L'app garde un seul projet à la fois : on sauvegarde l'actuel (.json), puis on repart à vide.
+$('newProjectBtn').onclick = () => {
+  $('newProjPanel').classList.toggle('hidden');
+  $('newProjOld').textContent = (PROJECT && PROJECT.name) || $('projectName').value || 'projet actuel';
+  if (!$('newProjPanel').classList.contains('hidden')) $('newProjName').focus();
+};
+$('newProjCancel').onclick = () => $('newProjPanel').classList.add('hidden');
+$('newProjToExport').onclick = () => switchTab('export');
+$('newProjConfirm').onclick = async () => {
+  const name = $('newProjName').value.trim();
+  if (!name) { $('newProjName').focus(); return toast('Donnez un nom au nouveau projet', 'warn'); }
+  const oldName = (PROJECT && PROJECT.name) || $('projectName').value || 'sans_nom';
+  const keep = $('newProjKeepStyle').checked;
+  if (SHOTS.length && !confirm(`Vider « ${oldName} » (${SHOTS.length} plans) et créer « ${name} » ?\n\nUne sauvegarde .json de « ${oldName} » va se télécharger.`)) return;
+  const btn = $('newProjConfirm'); btn.disabled = true;
+  try {
+    // 1. Sauvegarde de l'ancien projet (réimportable via « Importer un projet »)
+    if (SHOTS.length) {
+      const data = { project: PROJECT, shots: SHOTS, references: await LocalAPI.getReferences() };
+      downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `projet_${slug(oldName) || 'sans_nom'}.json`);
+    }
+    // 2. On vide : plans + copies locales des vidéos (elles ne correspondraient plus à aucun plan)
+    await LocalAPI.clearShots();
+    await LocalAPI.clearVideos();
+    if (!keep) {
+      await LocalAPI.clearReferences();
+      GLOBAL_STYLE_PROMPT = '';
+      $('styleStatus').textContent = ''; $('styleStatus').className = 'status hidden';
+      EXTRACTED_ENTITIES = { characters: [], locations: [] };
+      $('analyzeResults').classList.add('hidden');
+    }
+    // 3. Nouveau projet, avec un nouvel identifiant (ses vidéos GitHub ne se mélangeront pas à l'ancien)
+    await LocalAPI.saveProject({ name, pitch: '', global_style: GLOBAL_STYLE_PROMPT, uid: newUid() });
+    $('projectName').value = name; $('projectPitch').value = ''; $('exportZipName').value = '';
+    SHOTS = [];
+    renderShots(); renderImgGrid(); renderIndividualVideos(); renderVidGrid();
+    await loadCustomReferences();
+    $('newProjPanel').classList.add('hidden'); $('newProjName').value = '';
+    toast(`Projet « ${name} » créé`, 'ok');
+  } catch (e) {
+    toast('Erreur : ' + e.message, 'err');
+  } finally { btn.disabled = false; }
+};
 $('apiValidate').onclick = () => { 
   const raw = $('apiInput').value.split('\n').filter(l=>l.trim()); 
   API_KEYS = sanitizeKeys(raw); 
